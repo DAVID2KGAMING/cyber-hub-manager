@@ -1,0 +1,12 @@
+{
+  "label": "0.1.5",
+  "lines": 15003,
+  "edits": 30,
+  "fullBufferReadsDuringTyping": 0,
+  "fullLineVisitsDuringTyping": 0,
+  "typingHarnessMs": 434,
+  "pinchMoves": 30,
+  "refreshesDuringPinch": 0,
+  "refreshesIncludingRelease": 1,
+  "environment": "Synthetic touch / Happy DOM. No paint, GPU, Android runtime or FPS measurement."
+}

@@ -1,0 +1,13 @@
+PASS APKS tap exposes conversion, browse and extract actions
+PASS conversion dialog shows actual entries, output path and signing behavior
+PASS invalid output names cannot start conversion
+PASS native conversion receives source fingerprint, selected variant and destination
+PASS stage updates belong only to the active conversion
+PASS back and repeated conversion cannot abandon or duplicate a running job
+PASS success offers installation of the verified output path
+PASS long-press file menu includes direct conversion
+PASS multiple variants require an explicit selection instead of mixing APK sets
+PASS failed merge shows the native error, clears progress, and permits retry
+PASS APKS inside an archive defaults to a writable workspace output
+PASS no JavaScript errors across conversion states
+ALL 12 APKS UI CHECKS PASSED (mock native bridge; no Android runtime)

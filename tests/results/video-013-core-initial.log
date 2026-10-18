@@ -1,0 +1,23 @@
+PASS atomic save and backup
+PASS reject unsafe file names
+PASS ZIP compression and extraction
+PASS ZIP traversal rejected and extraction rolled back
+PASS archive edit preserves source
+PASS recursive copy inside source rejected
+PASS AXML empty strings and XML escaping round-trip
+PASS AXML round-trip on 1595 uploaded compiled resources
+PASS MultiDex class loading
+PASS DEX package tree
+PASS DEX method search
+PASS DEX string search
+PASS JADX Java decompilation
+PASS JADX simple mode
+PASS JADX fallback mode
+PASS Smali edit → assemble → Java reflects change
+PASS invalid Smali rejected without corrupting DEX
+PASS edited APK export and reopen
+ALL 18 CORE CHECKS PASSED
+PASS APK manifest edit + rebuild + signing + verify
+PASS stored resources alignment and 16 KB native library alignment
+PASS DEX compact root and nested package names
+PASS DEX compaction preserves branches and parent classes
