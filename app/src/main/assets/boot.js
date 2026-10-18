@@ -26,13 +26,13 @@
     document.body.classList.remove('busy');
     var toolbar = document.getElementById('toolbar');
     var content = document.getElementById('content');
-    toolbar.textContent = 'Cyber Hub Manager';
+    toolbar.textContent = 'DB Manager';
     content.textContent = '';
     var box = element('div');
     box.className = 'bootStatus';
     box.appendChild(element('h2', 'Unable to start'));
     box.appendChild(element('p', 'Please retry. If this happens again, share the error details below.'));
-    var details = element('pre', 'Cyber Hub Manager 0.1.7\n' + message + '\n\n' + navigator.userAgent);
+    var details = element('pre', 'DB Manager 0.1.7\n' + message + '\n\n' + navigator.userAgent);
     details.className = 'bootDetails';
     box.appendChild(details);
     var retry = element('button', 'RETRY');
