@@ -17,4 +17,3 @@ jobs:
         with:
           tag_name: v0.1.7
           files: app/build/outputs/apk/debug/*.apk
-
