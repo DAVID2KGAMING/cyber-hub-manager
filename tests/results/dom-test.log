@@ -1,0 +1,17 @@
+PASS dual-pane file manager DOM
+PASS APK metadata dialog
+PASS MultiDex selection
+PASS Smali edit and native save request
+PASS Java viewer read-only
+PASS reference Java menu actions
+PASS soft wrap
+PASS jump to line
+PASS search actual editor text
+PASS switch decompiler dispatch
+PASS Java export dispatch
+PASS editor preferences
+PASS all tool navigation entries
+PASS MCP service controls
+PASS terminal native dispatch
+PASS no JavaScript errors in DOM harness
+ALL 16 DOM CHECKS PASSED (layout and Android WebView not emulated)
