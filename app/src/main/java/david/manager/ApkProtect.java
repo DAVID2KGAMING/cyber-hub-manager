@@ -33,10 +33,26 @@ final class ApkProtect {
  }
  static String find(String xml){Matcher m=Pattern.compile("<manifest\\b[^>]*>").matcher(xml);return m.find()?m.group():"";}
 
+ static final java.util.regex.Pattern DATE=Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
+
  static JSONObject run(ApkTools.Host e,JSONObject a)throws Exception{
   File src=new File(a.getString("path"));if(!src.getName().toLowerCase(Locale.ROOT).endsWith(".apk"))throw new IOException("Choose an APK file");
   boolean sig=a.optBoolean("signatureCheck",true),root=a.optBoolean("rootCheck",true),dbg=a.optBoolean("debuggerCheck",true);
-  if(!sig&&!root&&!dbg)throw new IOException("Choose at least one check");
+  boolean emulator=a.optBoolean("emulatorCheck",false),frida=a.optBoolean("fridaCheck",false),screenshot=a.optBoolean("screenshotBlock",false);
+  boolean installSrc=a.optBoolean("installSourceCheck",false),expiry=a.optBoolean("expiryCheck",false),integrity=a.optBoolean("integrityCheck",false);
+  String installPkgsRaw=a.optString("installSourcePackages","").trim();
+  List<String> installPkgs=new ArrayList<>();
+  if(installSrc){
+   if(installPkgsRaw.isEmpty())throw new IOException("Enter at least one allowed installer package (e.g. com.android.vending)");
+   for(String p:installPkgsRaw.split(",")){String t=p.trim();if(!t.isEmpty()){if(!t.matches("[A-Za-z][A-Za-z0-9_.]*"))throw new IOException("Not a valid package name: "+t);installPkgs.add(t);}}
+  }
+  long expiryMillis=0;
+  if(expiry){
+   String d=a.optString("expiryDate","").trim();if(!DATE.matcher(d).matches())throw new IOException("Enter the expiry date (YYYY-MM-DD)");
+   java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyy-MM-dd");f.setTimeZone(TimeZone.getTimeZone("UTC"));f.setLenient(false);
+   try{expiryMillis=f.parse(d).getTime();}catch(Exception ex){throw new IOException("Not a valid date: "+d);}
+  }
+  if(!sig&&!root&&!dbg&&!emulator&&!frida&&!screenshot&&!installSrc&&!expiry&&!integrity)throw new IOException("Choose at least one protection");
 
   Axml ax=new Axml();String xml=ax.decode(ApkTools.manifestBytes(src));
   Matcher rm=Pattern.compile("<manifest\\b[^>]*>").matcher(xml);if(!rm.find())throw new IOException("AndroidManifest.xml has no <manifest> element");
@@ -50,33 +66,66 @@ final class ApkProtect {
 
   String guardBin=pkg.replace('.', '/')+"/"+GUARD_SIMPLE;
   String javaPkg=pkg;
-  String source=guardSource(javaPkg,certSha256,root,dbg);
-
+  String guardType="L"+guardBin+";";
   File apiJar=e.androidApiJar();
-  ClassDef guardClass=compileStandalone("L"+guardBin+";",source,apiJar,e.workspace());
 
   // Pick the first classes*.dex entry to host the new class (any would do; app loads them all).
   String dexEntry=firstDexEntry(src);
   byte[] dexBytes=FileOps.zipEntry(src,dexEntry,256L*1024*1024);
-  File tmpDex=File.createTempFile(".guard-src-",".dex",e.workspace());
-  byte[] mergedDex;
-  try{
-   java.nio.file.Files.write(tmpDex.toPath(),dexBytes);
-   DexBackedDexFile original=DexFileFactory.loadDexFile(tmpDex,Opcodes.getDefault());
-   if(original.getClasses().stream().anyMatch(c->c.getType().equals(guardClass.getType())))throw new IOException("A class named "+GUARD_SIMPLE+" already exists in this package. Protect APK cannot add its guard.");
-   List<ClassDef> all=new ArrayList<>();for(ClassDef c:original.getClasses())all.add(c);all.add(guardClass);
-   File out=File.createTempFile(".guard-out-",".dex",e.workspace());
-   try{DexPool.writeTo(out.getPath(),new ImmutableDexFile(original.getOpcodes(),all));mergedDex=java.nio.file.Files.readAllBytes(out.toPath());}finally{out.delete();}
-  }finally{tmpDex.delete();}
+
+  // Content the guard does NOT change can be hashed straight from the source APK — no circularity.
+  String arscHash=null;try{arscHash=sha256Hex(FileOps.zipEntry(src,"resources.arsc",256L*1024*1024));}catch(Exception ignored){}
+  String assetsHash=hashAssets(src);
+
+  // The DEX's own hash cannot be embedded inside itself (a file cannot contain its exact hash of
+  // itself). Build the guard once — it only READS its expected hashes from manifest meta-data at
+  // runtime, never from a baked-in constant — then hash the finished DEX and store that outside it.
+  byte[] mergedDex=buildMergedDex(src,dexEntry,dexBytes,guardType,guardBin,javaPkg,certSha256,root,dbg,emulator,frida,screenshot,installSrc,installPkgs,expiry,expiryMillis,integrity,apiJar,e.workspace());
+  String dexHash=integrity?sha256Hex(mergedDex):null;
 
   String newAppTag=appTag.substring(0,appTag.length()-1)+" android:name=\""+ApkTools.escape("."+GUARD_SIMPLE)+"\">";
-  String editedXml=xml.substring(0,am.start())+newAppTag+xml.substring(am.end());
+  StringBuilder meta=new StringBuilder();
+  if(integrity){
+   meta.append("<meta-data android:name=\"chGuardDex\" android:value=\"").append(dexHash).append("\"/>");
+   meta.append("<meta-data android:name=\"chGuardDexEntry\" android:value=\"").append(ApkTools.escape(dexEntry)).append("\"/>");
+   if(arscHash!=null)meta.append("<meta-data android:name=\"chGuardArsc\" android:value=\"").append(arscHash).append("\"/>");
+   meta.append("<meta-data android:name=\"chGuardAssets\" android:value=\"").append(assetsHash).append("\"/>");
+  }
+  String editedXml=xml.substring(0,am.start())+newAppTag+meta+xml.substring(am.end());
 
   Map<String,byte[]> repl=new HashMap<>();
   repl.put("AndroidManifest.xml",ax.encode(editedXml));
   repl.put(dexEntry,mergedDex);
   JSONObject r=ApkTools.publish(e,src,repl,Collections.<String>emptySet(),"-protected",true);
-  return r.put("checks",new JSONObject().put("signature",sig).put("root",root).put("debugger",dbg)).put("class",javaPkg+"."+GUARD_SIMPLE);
+  return r.put("checks",new JSONObject().put("signature",sig).put("root",root).put("debugger",dbg).put("emulator",emulator).put("frida",frida).put("screenshotBlock",screenshot).put("installSource",installSrc).put("expiry",expiry).put("integrity",integrity)).put("class",javaPkg+"."+GUARD_SIMPLE);
+ }
+ static String sha256Hex(byte[] data)throws Exception{return hex(MessageDigest.getInstance("SHA-256").digest(data));}
+ /** Order-independent-by-name, content-based hash of everything under assets/ in an APK. Stable even with zero assets. */
+ static String hashAssets(File apk)throws Exception{
+  TreeMap<String,byte[]> sorted=new TreeMap<>();
+  try(ZipFile z=new ZipFile(apk)){
+   Enumeration<? extends ZipEntry> en=z.entries();
+   while(en.hasMoreElements()){
+    ZipEntry ze=en.nextElement();if(ze.isDirectory()||!ze.getName().startsWith("assets/"))continue;
+    try(InputStream in=z.getInputStream(ze)){sorted.put(ze.getName(),ApkTools.readLimited(in,64L*1024*1024));}
+   }
+  }
+  MessageDigest md=MessageDigest.getInstance("SHA-256");
+  for(Map.Entry<String,byte[]> en:sorted.entrySet()){md.update(en.getKey().getBytes(StandardCharsets.UTF_8));md.update((byte)0);md.update(en.getValue());}
+  return hex(md.digest());
+ }
+ static byte[] buildMergedDex(File src,String dexEntry,byte[] dexBytes,String guardType,String guardBin,String javaPkg,byte[] certSha256,boolean root,boolean dbg,boolean emulator,boolean frida,boolean screenshot,boolean installSrc,List<String> installPkgs,boolean expiry,long expiryMillis,boolean integrity,File apiJar,File workspace)throws Exception{
+  String source=guardSource(javaPkg,certSha256,root,dbg,emulator,frida,screenshot,installSrc,installPkgs,expiry,expiryMillis,integrity);
+  List<ClassDef> guardClasses=compileStandalone(guardType,source,apiJar,workspace);
+  File tmpDex=File.createTempFile(".guard-src-",".dex",workspace);
+  try{
+   java.nio.file.Files.write(tmpDex.toPath(),dexBytes);
+   DexBackedDexFile original=DexFileFactory.loadDexFile(tmpDex,Opcodes.getDefault());
+   if(original.getClasses().stream().anyMatch(c->c.getType().equals(guardType)))throw new IOException("A class named "+GUARD_SIMPLE+" already exists in this package. Protect APK cannot add its guard.");
+   List<ClassDef> all=new ArrayList<>();for(ClassDef c:original.getClasses())all.add(c);all.addAll(guardClasses);
+   File out=File.createTempFile(".guard-out-",".dex",workspace);
+   try{DexPool.writeTo(out.getPath(),new ImmutableDexFile(original.getOpcodes(),all));return java.nio.file.Files.readAllBytes(out.toPath());}finally{out.delete();}
+  }finally{tmpDex.delete();}
  }
 
  static String firstDexEntry(File apk)throws Exception{
@@ -88,8 +137,9 @@ final class ApkProtect {
   throw new IOException("No DEX found in this APK");
  }
 
- /** Compile one standalone top-level class with ECJ, convert to DEX with the bundled dx. No project stubs: the guard only uses the public Android API. */
- static ClassDef compileStandalone(String type,String text,File platform,File workspace)throws Exception{
+ /** Compile one standalone top-level class (plus any nested/anonymous classes it defines) with ECJ,
+  * convert to DEX with the bundled dx. No project stubs: the guard only uses the public Android API. */
+ static List<ClassDef> compileStandalone(String type,String text,File platform,File workspace)throws Exception{
   if(!platform.isFile())throw new IOException("Compiler API library is missing");
   File work=new File(workspace,"guard-"+UUID.randomUUID());if(!work.mkdirs())throw new IOException("Cannot create compiler workspace");
   try{
@@ -110,20 +160,33 @@ final class ApkProtect {
    int result=com.android.dx.command.dexer.CyberCompiler.compile(context,classJar.getPath(),dex.getPath());
    if(result!=0||!dex.isFile())throw new IOException("Guard class failed to convert to DEX:\n"+dxLog.toString("UTF-8"));
    DexBackedDexFile parsed=DexFileFactory.loadDexFile(dex,Opcodes.getDefault());
-   for(ClassDef c:parsed.getClasses())if(c.getType().equals(type))return ImmutableClassDef.of(c);
-   throw new IOException("Compiled class not found: "+type);
+   String family=type.substring(0,type.length()-1)+"$"; // Lpkg/Name$ — matches Lpkg/Name$1; nested/anonymous classes
+   List<ClassDef> family_=new ArrayList<>();boolean found=false;
+   for(ClassDef c:parsed.getClasses()){
+    if(c.getType().equals(type)){found=true;family_.add(ImmutableClassDef.of(c));}
+    else if(c.getType().startsWith(family))family_.add(ImmutableClassDef.of(c));
+   }
+   if(!found)throw new IOException("Compiled class not found: "+type);
+   return family_;
   }finally{FileOps.deleteTree(work);}
  }
  static void collectClasses(File dir,List<File> out){File[] fs=dir.listFiles();if(fs==null)return;for(File f:fs)if(f.isDirectory())collectClasses(f,out);else if(f.getName().endsWith(".class"))out.add(f);}
 
  static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format("%02x",v&255));return s.toString();}
 
- static String guardSource(String pkg,byte[] certSha256,boolean root,boolean dbg){
+ static String guardSource(String pkg,byte[] certSha256,boolean root,boolean dbg,boolean emulator,boolean frida,boolean screenshot,boolean installSrc,List<String> installPkgs,boolean expiry,long expiryMillis,boolean integrity){
   StringBuilder b=new StringBuilder();
   b.append("package ").append(pkg).append(";\n");
-  b.append("import android.app.Application;import android.content.pm.*;import android.content.Context;import java.security.MessageDigest;import java.io.*;\n");
+  b.append("import android.app.Application;import android.app.Activity;import android.content.pm.*;import android.content.Context;import android.os.Bundle;import android.view.WindowManager;import java.security.MessageDigest;import java.io.*;import java.util.*;\n");
   b.append("public final class ").append(GUARD_SIMPLE).append(" extends Application {\n");
-  b.append(" @Override public void onCreate(){super.onCreate();try{check(this);}catch(Throwable t){fail();}}\n");
+  b.append(" @Override public void onCreate(){super.onCreate();try{check(this);}catch(Throwable t){fail();}\n");
+  if(screenshot){
+   b.append("  registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks(){\n");
+   b.append("   public void onActivityCreated(Activity a,Bundle s){try{a.getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE,WindowManager.LayoutParams.FLAG_SECURE);}catch(Throwable t){}}\n");
+   b.append("   public void onActivityStarted(Activity a){}\n   public void onActivityResumed(Activity a){}\n   public void onActivityPaused(Activity a){}\n   public void onActivityStopped(Activity a){}\n   public void onActivitySaveInstanceState(Activity a,Bundle s){}\n   public void onActivityDestroyed(Activity a){}\n");
+   b.append("  });\n");
+  }
+  b.append(" }\n");
   b.append(" static void check(Context c)throws Exception{\n");
   if(certSha256!=null){
    b.append("  String expected=\"").append(hex(certSha256)).append("\";\n");
@@ -133,17 +196,67 @@ final class ApkProtect {
    b.append("  if(!matched)fail();\n");
   }
   if(root){
-   b.append("  String[] paths={\"/system/app/Superuser.apk\",\"/sbin/su\",\"/system/bin/su\",\"/system/xbin/su\",\"/data/local/xbin/su\",\"/data/local/bin/su\",\"/system/sd/xbin/su\",\"/system/bin/failsafe/su\",\"/data/local/su\",\"/su/bin/su\"};\n");
+   b.append("  String[] paths={\"/system/app/Superuser.apk\",\"/sbin/su\",\"/system/bin/su\",\"/system/xbin/su\",\"/data/local/xbin/su\",\"/data/local/bin/su\",\"/system/sd/xbin/su\",\"/system/bin/failsafe/su\",\"/data/local/su\",\"/su/bin/su\",\"/system/bin/magisk\",\"/sbin/magisk\"};\n");
    b.append("  for(String p:paths)if(new File(p).exists())fail();\n");
    b.append("  String tags=android.os.Build.TAGS;if(tags!=null&&tags.contains(\"test-keys\"))fail();\n");
   }
   if(dbg){
-   b.append("  if(android.os.Debug.isDebuggerConnected())fail();\n");
+   b.append("  if(android.os.Debug.isDebuggerConnected()||android.os.Debug.waitingForDebugger())fail();\n");
    b.append("  try(BufferedReader r=new BufferedReader(new FileReader(\"/proc/self/status\"))){String line;while((line=r.readLine())!=null)if(line.startsWith(\"TracerPid:\")&&!line.trim().endsWith(\"0\"))fail();}catch(Exception ignored){}\n");
   }
+  if(emulator){
+   b.append("  String fp=android.os.Build.FINGERPRINT,model=android.os.Build.MODEL,manu=android.os.Build.MANUFACTURER,hw=android.os.Build.HARDWARE,prod=android.os.Build.PRODUCT,brand=android.os.Build.BRAND,dev=android.os.Build.DEVICE;\n");
+   b.append("  boolean emu=(fp!=null&&(fp.startsWith(\"generic\")||fp.startsWith(\"unknown\")||fp.contains(\"vbox\")||fp.contains(\"test-keys\")))\n");
+   b.append("   ||(model!=null&&(model.contains(\"google_sdk\")||model.contains(\"Emulator\")||model.contains(\"Android SDK built for\")))\n");
+   b.append("   ||(manu!=null&&manu.toLowerCase().contains(\"genymotion\"))\n");
+   b.append("   ||(brand!=null&&brand.startsWith(\"generic\")&&dev!=null&&dev.startsWith(\"generic\"))\n");
+   b.append("   ||(hw!=null&&(hw.contains(\"goldfish\")||hw.contains(\"ranchu\")))\n");
+   b.append("   ||(prod!=null&&prod.contains(\"sdk\"))\n");
+   b.append("   ||new File(\"/dev/socket/qemud\").exists()||new File(\"/dev/qemu_pipe\").exists();\n");
+   b.append("  if(emu)fail();\n");
+  }
+  if(frida){
+   b.append("  if(new File(\"/system/framework/XposedBridge.jar\").exists())fail();\n");
+   b.append("  try(BufferedReader r=new BufferedReader(new FileReader(\"/proc/self/maps\"))){String line;while((line=r.readLine())!=null){String low=line.toLowerCase();if(low.contains(\"frida\")||low.contains(\"xposed\")||low.contains(\"substrate\"))fail();}}catch(Exception ignored){}\n");
+  }
+  if(installSrc){
+   b.append("  String installer;\n");
+   b.append("  if(android.os.Build.VERSION.SDK_INT>=30){InstallSourceInfo isi=c.getPackageManager().getInstallSourceInfo(c.getPackageName());installer=isi.getInstallingPackageName();}\n");
+   b.append("  else installer=c.getPackageManager().getInstallerPackageName(c.getPackageName());\n");
+   b.append("  String[] allowed={");
+   for(int i=0;i<installPkgs.size();i++){if(i>0)b.append(',');b.append('"').append(escapeJava(installPkgs.get(i))).append('"');}
+   b.append("};\n");
+   b.append("  boolean ok=false;if(installer!=null)for(String a:allowed)if(installer.equals(a))ok=true;\n");
+   b.append("  if(!ok)fail();\n");
+  }
+  if(expiry){
+   b.append("  if(System.currentTimeMillis()>").append(expiryMillis).append("L)fail();\n");
+  }
+  if(integrity){
+   b.append("  ApplicationInfo ai=c.getPackageManager().getApplicationInfo(c.getPackageName(),PackageManager.GET_META_DATA);\n");
+   b.append("  android.os.Bundle gmd=ai.metaData;if(gmd==null)fail();\n");
+   b.append("  String dexEntry=gmd.getString(\"chGuardDexEntry\"),expDex=gmd.getString(\"chGuardDex\"),expArsc=gmd.getString(\"chGuardArsc\"),expAssets=gmd.getString(\"chGuardAssets\");\n");
+   b.append("  java.util.zip.ZipFile zf=new java.util.zip.ZipFile(ai.sourceDir);\n");
+   b.append("  try{\n");
+   b.append("   if(expDex!=null){if(dexEntry==null||!sha256(readEntry(zf,dexEntry)).equals(expDex))fail();}\n");
+   b.append("   if(expArsc!=null){if(!sha256(readEntry(zf,\"resources.arsc\")).equals(expArsc))fail();}\n");
+   b.append("   if(expAssets!=null){\n");
+   b.append("    TreeMap<String,byte[]> sorted=new TreeMap<>();java.util.Enumeration<? extends java.util.zip.ZipEntry> en=zf.entries();\n");
+   b.append("    while(en.hasMoreElements()){java.util.zip.ZipEntry e2=en.nextElement();if(!e2.isDirectory()&&e2.getName().startsWith(\"assets/\"))sorted.put(e2.getName(),readEntry(zf,e2.getName()));}\n");
+   b.append("    MessageDigest md2=MessageDigest.getInstance(\"SHA-256\");for(Map.Entry<String,byte[]> en2:sorted.entrySet()){md2.update(en2.getKey().getBytes(\"UTF-8\"));md2.update((byte)0);md2.update(en2.getValue());}\n");
+   b.append("    if(!hex(md2.digest()).equals(expAssets))fail();\n");
+   b.append("   }\n");
+   b.append("  }finally{zf.close();}\n");
+  }
   b.append(" }\n");
+  if(integrity){
+   b.append(" static byte[] readEntry(java.util.zip.ZipFile zf,String name)throws IOException{java.util.zip.ZipEntry e2=zf.getEntry(name);if(e2==null)return new byte[0];ByteArrayOutputStream o=new ByteArrayOutputStream();InputStream in=zf.getInputStream(e2);byte[] buf=new byte[65536];int n;while((n=in.read(buf))>0)o.write(buf,0,n);in.close();return o.toByteArray();}\n");
+   b.append(" static String sha256(byte[] d)throws Exception{return hex(MessageDigest.getInstance(\"SHA-256\").digest(d));}\n");
+   b.append(" static String hex(byte[] d){StringBuilder h=new StringBuilder();for(byte x:d)h.append(String.format(\"%02x\",x&255));return h.toString();}\n");
+  }
   b.append(" static void fail(){android.os.Process.killProcess(android.os.Process.myPid());System.exit(1);}\n");
   b.append("}\n");
   return b.toString();
  }
+ static String escapeJava(String s){return s.replace("\\","\\\\").replace("\"","\\\"");}
 }

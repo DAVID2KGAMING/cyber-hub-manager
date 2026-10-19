@@ -1,4 +1,4 @@
-# DB Manager — 0.1.9 development build
+# DB Manager — 0.2.1 development build
 
 Android file manager and APK/DEX editor using a local WebView interface and native Java tools. Core tools work offline. Android 8.0 / API 26 or newer is required.
 
@@ -15,9 +15,17 @@ Open an APK → **Function**, or select files/folders:
 - **Hex view / patch** for any file or archive entry: go to offset, find (hex or "text"), overwrite bytes. Files get a one-time `.bak`; archive entries produce a new signed copy. Same-length patches only.
 - **String resources (arsc)**: list and edit strings in `resources.arsc` (`res/...` paths are hidden). An edit applies to every place that uses exactly that text.
 - **Decode to project folder / Build APK project**: apktool-style at XML level. Every file is extracted and binary XML (manifest, layouts, drawables, menus) becomes editable text; Build re-encodes changed XML, adds new files, drops deleted ones, signs and verifies. `resources.arsc` and DEX are not decompiled to `values/` XML or Smali folders; use String resources and the DEX editor for those.
-- **Signing key**: generate an RSA-2048 key (30 years by default, optional backup `.p12`), import your own PKCS12 `.p12`/`.pfx`, export it, or return to the public development key. Every signing path (Sign file, DEX save+sign, APKS convert, the new tools) uses your key once set. The password is stored in the app's private storage.
-
-- **Protect APK**: adds one small Application-subclass guard to an APK (Function menu, or long-press an APK). You pick which checks run on launch: stop if the signing certificate changes (prevents re-signed/repacked copies from running with your assets), stop on rooted devices, stop if a debugger is attached. No existing class is modified — only a new class and the manifest are touched — so it only works on an APK that does not already set its own `android:name` on `<application>`; it tells you so if it does. The original APK is never changed.
+- **Protect APK**: adds one small Application-subclass guard to an APK (Function menu, or long-press an APK). It only works on an APK that does not already set its own `android:name` on `<application>` (tells you so if it does); no existing class is modified, only a new class and the manifest. Tick any combination:
+  - Stop if re-signed with another key (signing-certificate pin)
+  - Stop on rooted devices
+  - Stop if a debugger is attached
+  - Stop on emulators (BlueStacks, LDPlayer, Genymotion, generic AVDs)
+  - Stop if Frida or Xposed is detected
+  - Stop if DEX, resources.arsc or assets were edited after protecting (SHA-256 content hash of each, not just size — stored in AndroidManifest.xml meta-data rather than inside the DEX itself, since a file cannot contain its own exact hash; overlaps with the signing-certificate pin above, which already covers every byte of the APK cryptographically — this adds a second, independent check)
+  - Block screenshots / screen recording (silent, doesn't stop the app)
+  - Stop unless installed from one of the installer packages you list
+  - Stop the app after a date you choose
+  The original APK is never changed; the result is a new `-protected.apk`, signed and verified.
 
 Not included: SFTP (needs an SSH library; only FTP/FTPS exist), merging several DEX files into one, one-tap ad removal (needs code edits, not just permissions), decoding `resources.arsc` to `values/*.xml` or DEX to Smali folders on disk, and brand-new symbolic resources. Cloned apps that check their own signature, package name or licence server may not run.
 
