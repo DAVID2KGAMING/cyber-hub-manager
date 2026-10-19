@@ -40,6 +40,7 @@ public final class ApkTools {
    case "ksGenerate":return ksGenerate(e,a);
    case "ksExport":return ksExport(e,a);
    case "ksReset":return ksReset(e);
+   case "protectDetect":return ApkProtect.detect(new File(a.getString("path")));
    case "protectInfo":return ApkProtect.info(new File(a.getString("path")));
    case "protect":return ApkProtect.run(e,a);
    default:throw new IOException("Unknown APK tool: "+op);

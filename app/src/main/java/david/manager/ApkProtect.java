@@ -25,6 +25,32 @@ final class ApkProtect {
  private ApkProtect(){}
  static final String GUARD_SIMPLE="ChGuard";
 
+ static JSONObject detect(File apk)throws Exception{
+  if(!apk.isFile()||!apk.getName().toLowerCase(Locale.ROOT).endsWith(".apk"))throw new IOException("Choose an APK file");
+  // Detection only: inspect ZIP names and bounded printable strings; never extract or alter entries.
+  Set<String> found=new LinkedHashSet<>();
+  String[] signatures={"360jiagu","libjiagu","com.stub.stubapp","libexecmain.so","libprotectclass","com.qihoo.util","com.secneo.apkwrapper","libsecexe","vmprotect","vm_protect","libvmprotect","vmp_sdk"};
+  long budget=64L*1024*1024;
+  try(ZipFile z=new ZipFile(apk)){
+   Enumeration<? extends ZipEntry> entries=z.entries();
+   while(entries.hasMoreElements()){
+    ZipEntry e=entries.nextElement();String name=e.getName().toLowerCase(Locale.ROOT);
+    for(String sig:signatures)if(name.contains(sig))found.add(sig);
+    if(e.isDirectory()||e.getSize()<=0||budget<=0)continue;
+    String lower=name;
+    if(!(lower.endsWith(".dex")||lower.endsWith(".so")||lower.equals("androidmanifest.xml")))continue;
+    long cap=Math.min(Math.min(e.getSize(),8L*1024*1024),budget);if(cap<=0)continue;
+    byte[] data=new byte[(int)cap];int used=0;
+    try(InputStream in=z.getInputStream(e)){while(used<data.length){int n=in.read(data,used,data.length-used);if(n<0)break;used+=n;}}
+    budget-=used;String text=new String(data,0,used,StandardCharsets.ISO_8859_1).toLowerCase(Locale.ROOT);
+    for(String sig:signatures)if(text.contains(sig))found.add(sig);
+   }
+  }
+  JSONArray indicators=new JSONArray();for(String f:found)indicators.put(f);
+  boolean jiagu=false,vm=false;for(String f:found){if(f.contains("jiagu")||f.contains("360")||f.contains("qihoo")||f.contains("stubapp")||f.contains("execmain")||f.contains("protectclass")||f.contains("secneo"))jiagu=true;else if(f.contains("vmprotect")||f.contains("vm_protect")||f.contains("vmp_"))vm=true;}
+  String jiaguStatus=jiagu?"possible":"not detected",vmStatus=vm?"possible":"not detected";
+  return new JSONObject().put("path",apk.getAbsolutePath()).put("360Jiagu",jiaguStatus).put("vmProtection",vmStatus).put("indicators",indicators).put("method","heuristic ZIP-entry names and bounded DEX/native-library strings").put("note","Heuristic only: protected builds may hide or rename signatures, and unrelated apps may contain matching strings. Not detected does not prove absence.");
+ }
  static JSONObject info(File apk)throws Exception{
   String xml=new Axml().decode(ApkTools.manifestBytes(apk));
   Matcher am=Pattern.compile("<application\\b[^>]*>").matcher(xml);String atag=am.find()?am.group():"";
