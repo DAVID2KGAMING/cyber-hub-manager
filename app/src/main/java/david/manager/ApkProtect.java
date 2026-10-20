@@ -16,24 +16,18 @@ import org.jf.dexlib2.writer.pool.DexPool;
 
 /**
  * Adds a self-contained runtime guard to an APK: an Application subclass that checks the signing
- * certificate, looks for root and for an attached debugger, and kills the process if a check fails.
- * No existing class is touched; only AndroidManifest.xml and one new DEX class are added.
+ * certificate, looks for root, debuggers, emulators, Frida/Xposed, tapjacking and MITM proxies, can
+ * verify DEX/resources.arsc/assets integrity, enforce an install source or an expiry date, and can
+ * force allowBackup/debuggable off. No existing class is touched; only AndroidManifest.xml and one
+ * new DEX class are added. The guard's class name, method names, meta-data keys, and every literal
+ * "signal" string (root paths, Frida markers, proc paths, ...) are randomized/obfuscated per call, so
+ * two protected APKs never share a recognizable fingerprint and a plain `strings` dump on the DEX
+ * doesn't reveal what is being checked.
  * Scope: only APKs that do not already declare android:application/android:name (no existing
  * custom Application subclass) are supported in this version.
  */
 final class ApkProtect {
  private ApkProtect(){}
- /** Fixed, readable guard class name used only when obfuscate=false. */
- static final String GUARD_SIMPLE="ChGuard";
-
- /** A short, meaningless, per-build class name (e.g. "K3fa21b9") so the guard isn't a static,
-  * greppable signature across every APK this tool protects. Must be a valid Java identifier. */
- static String randomGuardName(){
-  byte[] r=new byte[4];new SecureRandom().nextBytes(r);
-  StringBuilder s=new StringBuilder("K");
-  for(byte x:r)s.append(String.format("%02x",x&255));
-  return s.toString();
- }
 
  static JSONObject info(File apk)throws Exception{
   String xml=new Axml().decode(ApkTools.manifestBytes(apk));
@@ -45,6 +39,36 @@ final class ApkProtect {
 
  static final java.util.regex.Pattern DATE=Pattern.compile("[0-9]{4}-[0-9]{2}-[0-9]{2}");
 
+ // ---------------------------------------------------------------- randomized naming/obfuscation
+ static final SecureRandom RNG=new SecureRandom();
+ static String randIdent(int len){
+  String first="abcdefghijklmnopqrstuvwxyz",rest="abcdefghijklmnopqrstuvwxyz0123456789";
+  StringBuilder s=new StringBuilder();s.append(first.charAt(RNG.nextInt(first.length())));
+  for(int i=1;i<len;i++)s.append(rest.charAt(RNG.nextInt(rest.length())));
+  return s.toString();
+ }
+ /** Per-protect randomized identifiers and the XOR key, so no two protected APKs look alike. */
+ static final class Names{
+  String cls,mCheck,mFail,mReadEntry,mSha256,mHex,mDecode,kEntries,kHashes,kArsc,kAssets;
+  int key;
+ }
+ static Names randomNames(){
+  Names n=new Names();
+  n.cls=randIdent(8);n.mCheck=randIdent(5);n.mFail=randIdent(4);n.mReadEntry=randIdent(6);n.mSha256=randIdent(5);n.mHex=randIdent(4);n.mDecode=randIdent(4);
+  n.kEntries=randIdent(7);n.kHashes=randIdent(7);n.kArsc=randIdent(7);n.kAssets=randIdent(7);
+  n.key=1+RNG.nextInt(254);
+  return n;
+ }
+ static String xorB64(String plain,int key){
+  byte[] p=plain.getBytes(StandardCharsets.UTF_8);byte[] o=new byte[p.length];
+  for(int i=0;i<p.length;i++)o[i]=(byte)(p[i]^key);
+  return Base64.getEncoder().encodeToString(o);
+ }
+ /** Source text for a call that decodes one literal at runtime, e.g. d7f("YQrPtg==",173). */
+ static String dc(Names n,String plain){return n.mDecode+"(\""+xorB64(plain,n.key)+"\","+n.key+")";}
+ /** Same, for several items packed with '|' and split back out at runtime. */
+ static String dcJoined(Names n,String... items){return dc(n,String.join("|",items));}
+
  static JSONObject run(ApkTools.Host e,JSONObject a)throws Exception{
   File src=new File(a.getString("path"));if(!src.getName().toLowerCase(Locale.ROOT).endsWith(".apk"))throw new IOException("Choose an APK file");
   boolean sig=a.optBoolean("signatureCheck",true),root=a.optBoolean("rootCheck",true),dbg=a.optBoolean("debuggerCheck",true);
@@ -52,9 +76,6 @@ final class ApkProtect {
   boolean installSrc=a.optBoolean("installSourceCheck",false),expiry=a.optBoolean("expiryCheck",false),integrity=a.optBoolean("integrityCheck",false);
   boolean disableBackup=a.optBoolean("disableBackup",false),forceNonDebuggable=a.optBoolean("forceNonDebuggable",false);
   boolean tapjacking=a.optBoolean("tapjackingCheck",false),mitm=a.optBoolean("mitmCheck",false);
-  // Standalone: random class/method names, stripped debug info and XOR-encoded string constants.
-  // Applies to whatever guard gets built — on by default, independent of which checks are chosen.
-  boolean obfuscate=a.optBoolean("obfuscate",true);
   String installPkgsRaw=a.optString("installSourcePackages","").trim();
   List<String> installPkgs=new ArrayList<>();
   if(installSrc){
@@ -79,9 +100,8 @@ final class ApkProtect {
   // Expected signing certificate: whatever ApkTools.publish() will actually sign with.
   byte[] certSha256=sig?e.devSigningCert():null;
 
-  String guardName=obfuscate?randomGuardName():GUARD_SIMPLE;
-  int xorKey=1+new SecureRandom().nextInt(254); // 1..254, never 0 (0 would leave strings in the clear); unused when !obfuscate
-  String guardBin=pkg.replace('.', '/')+"/"+guardName;
+  Names gn=randomNames();
+  String guardBin=pkg.replace('.', '/')+"/"+gn.cls;
   String javaPkg=pkg;
   String guardType="L"+guardBin+";";
   File apiJar=e.androidApiJar();
@@ -103,34 +123,28 @@ final class ApkProtect {
   // The host DEX's own hash cannot be embedded inside itself (a file cannot contain its exact hash
   // of itself). Build the guard once — it only READS its expected hashes from manifest meta-data at
   // runtime, never from a baked-in constant — then hash the finished DEX and store that outside it.
-  byte[] mergedDex=buildMergedDex(src,dexEntry,dexBytes,guardType,guardBin,guardName,obfuscate,xorKey,javaPkg,certSha256,root,dbg,emulator,frida,screenshot,installSrc,installPkgs,expiry,expiryMillis,integrity,tapjacking,mitm,apiJar,e.workspace());
+  byte[] mergedDex=buildMergedDex(src,dexEntry,dexBytes,guardType,guardBin,javaPkg,certSha256,root,dbg,emulator,frida,screenshot,installSrc,installPkgs,expiry,expiryMillis,integrity,tapjacking,mitm,gn,apiJar,e.workspace());
   if(integrity)dexHashes.put(dexEntry,sha256Hex(mergedDex));
 
-  boolean selfClosing=appTag.endsWith("/>");
-  String newAppTag=(selfClosing?appTag.substring(0,appTag.length()-2):appTag.substring(0,appTag.length()-1))
-    +" android:name=\""+ApkTools.escape("."+guardName)+"\">";
+  String newAppTag=appTag.substring(0,appTag.length()-1)+" android:name=\""+ApkTools.escape("."+gn.cls)+"\">";
   if(disableBackup)newAppTag=ApkTools.setOrAddAttr(newAppTag,"android:allowBackup","false");
   if(forceNonDebuggable)newAppTag=ApkTools.setOrAddAttr(newAppTag,"android:debuggable","false");
-  // Self-closing <application/> has no separate closing tag in the source doc, so we must add one
-  // ourselves once we give it children (android:name attr change above doesn't need it, but the
-  // <meta-data> entries below do).
-  String closeAppTag=selfClosing?"</application>":"";
   StringBuilder meta=new StringBuilder();
   if(integrity){
    StringBuilder entries=new StringBuilder(),hashes=new StringBuilder();
    for(String d:allDex){if(entries.length()>0){entries.append(',');hashes.append(',');}entries.append(d);hashes.append(dexHashes.get(d));}
-   meta.append("<meta-data android:name=\"chGuardDexEntries\" android:value=\"").append(ApkTools.escape(entries.toString())).append("\"/>");
-   meta.append("<meta-data android:name=\"chGuardDexHashes\" android:value=\"").append(hashes).append("\"/>");
-   if(arscHash!=null)meta.append("<meta-data android:name=\"chGuardArsc\" android:value=\"").append(arscHash).append("\"/>");
-   meta.append("<meta-data android:name=\"chGuardAssets\" android:value=\"").append(assetsHash).append("\"/>");
+   meta.append("<meta-data android:name=\"").append(gn.kEntries).append("\" android:value=\"").append(ApkTools.escape(entries.toString())).append("\"/>");
+   meta.append("<meta-data android:name=\"").append(gn.kHashes).append("\" android:value=\"").append(hashes).append("\"/>");
+   if(arscHash!=null)meta.append("<meta-data android:name=\"").append(gn.kArsc).append("\" android:value=\"").append(arscHash).append("\"/>");
+   meta.append("<meta-data android:name=\"").append(gn.kAssets).append("\" android:value=\"").append(assetsHash).append("\"/>");
   }
-  String editedXml=xml.substring(0,am.start())+newAppTag+meta+closeAppTag+xml.substring(am.end());
+  String editedXml=xml.substring(0,am.start())+newAppTag+meta+xml.substring(am.end());
 
   Map<String,byte[]> repl=new HashMap<>();
   repl.put("AndroidManifest.xml",ax.encode(editedXml));
   repl.put(dexEntry,mergedDex);
   JSONObject r=ApkTools.publish(e,src,repl,Collections.<String>emptySet(),"-protected",true);
-  return r.put("checks",new JSONObject().put("signature",sig).put("root",root).put("debugger",dbg).put("emulator",emulator).put("frida",frida).put("screenshotBlock",screenshot).put("installSource",installSrc).put("expiry",expiry).put("integrity",integrity).put("dexCount",allDex.size()).put("disableBackup",disableBackup).put("forceNonDebuggable",forceNonDebuggable).put("tapjacking",tapjacking).put("mitm",mitm).put("obfuscated",obfuscate)).put("class",javaPkg+"."+guardName);
+  return r.put("checks",new JSONObject().put("signature",sig).put("root",root).put("debugger",dbg).put("emulator",emulator).put("frida",frida).put("screenshotBlock",screenshot).put("installSource",installSrc).put("expiry",expiry).put("integrity",integrity).put("dexCount",allDex.size()).put("disableBackup",disableBackup).put("forceNonDebuggable",forceNonDebuggable).put("tapjacking",tapjacking).put("mitm",mitm)).put("class",javaPkg+"."+gn.cls);
  }
  static String sha256Hex(byte[] data)throws Exception{return hex(MessageDigest.getInstance("SHA-256").digest(data));}
  /** Order-independent-by-name, content-based hash of everything under assets/ in an APK. Stable even with zero assets. */
@@ -147,14 +161,14 @@ final class ApkProtect {
   for(Map.Entry<String,byte[]> en:sorted.entrySet()){md.update(en.getKey().getBytes(StandardCharsets.UTF_8));md.update((byte)0);md.update(en.getValue());}
   return hex(md.digest());
  }
- static byte[] buildMergedDex(File src,String dexEntry,byte[] dexBytes,String guardType,String guardBin,String guardName,boolean obfuscate,int xorKey,String javaPkg,byte[] certSha256,boolean root,boolean dbg,boolean emulator,boolean frida,boolean screenshot,boolean installSrc,List<String> installPkgs,boolean expiry,long expiryMillis,boolean integrity,boolean tapjacking,boolean mitm,File apiJar,File workspace)throws Exception{
-  String source=guardSource(guardName,obfuscate,xorKey,javaPkg,certSha256,root,dbg,emulator,frida,screenshot,installSrc,installPkgs,expiry,expiryMillis,integrity,tapjacking,mitm);
-  List<ClassDef> guardClasses=compileStandalone(guardType,source,apiJar,workspace,obfuscate);
+ static byte[] buildMergedDex(File src,String dexEntry,byte[] dexBytes,String guardType,String guardBin,String javaPkg,byte[] certSha256,boolean root,boolean dbg,boolean emulator,boolean frida,boolean screenshot,boolean installSrc,List<String> installPkgs,boolean expiry,long expiryMillis,boolean integrity,boolean tapjacking,boolean mitm,Names gn,File apiJar,File workspace)throws Exception{
+  String source=guardSource(javaPkg,certSha256,root,dbg,emulator,frida,screenshot,installSrc,installPkgs,expiry,expiryMillis,integrity,tapjacking,mitm,gn);
+  List<ClassDef> guardClasses=compileStandalone(guardType,source,apiJar,workspace);
   File tmpDex=File.createTempFile(".guard-src-",".dex",workspace);
   try{
    java.nio.file.Files.write(tmpDex.toPath(),dexBytes);
    DexBackedDexFile original=DexFileFactory.loadDexFile(tmpDex,Opcodes.getDefault());
-   if(original.getClasses().stream().anyMatch(c->c.getType().equals(guardType)))throw new IOException("A class named "+guardName+" already exists in this package. Protect APK cannot add its guard.");
+   if(original.getClasses().stream().anyMatch(c->c.getType().equals(guardType)))throw new IOException("A class named "+gn.cls+" already exists in this package. Protect APK cannot add its guard.");
    List<ClassDef> all=new ArrayList<>();for(ClassDef c:original.getClasses())all.add(c);all.addAll(guardClasses);
    File out=File.createTempFile(".guard-out-",".dex",workspace);
    try{DexPool.writeTo(out.getPath(),new ImmutableDexFile(original.getOpcodes(),all));return java.nio.file.Files.readAllBytes(out.toPath());}finally{out.delete();}
@@ -182,7 +196,7 @@ final class ApkProtect {
 
  /** Compile one standalone top-level class (plus any nested/anonymous classes it defines) with ECJ,
   * convert to DEX with the bundled dx. No project stubs: the guard only uses the public Android API. */
- static List<ClassDef> compileStandalone(String type,String text,File platform,File workspace,boolean obfuscate)throws Exception{
+ static List<ClassDef> compileStandalone(String type,String text,File platform,File workspace)throws Exception{
   if(!platform.isFile())throw new IOException("Compiler API library is missing");
   File work=new File(workspace,"guard-"+UUID.randomUUID());if(!work.mkdirs())throw new IOException("Cannot create compiler workspace");
   try{
@@ -190,11 +204,9 @@ final class ApkProtect {
    File source=new File(work,simple+".java"),output=new File(work,"classes");output.mkdirs();
    FileOps.writeAtomic(source,text.getBytes(StandardCharsets.UTF_8),false);
    StringWriter log=new StringWriter();PrintWriter messages=new PrintWriter(log);
-   // -g:none when obfuscate=true: no LocalVariableTable / LineNumberTable / SourceFile attributes
-   // in the compiled class, so a decompiler can't recover local variable names or source lines.
-   // Plain -g (full debug info) when obfuscate=false, for anyone who wants to inspect the guard.
-   String debugFlag=obfuscate?"-g:none":"-g";
-   boolean ok=org.eclipse.jdt.core.compiler.batch.BatchCompiler.compile(new String[]{"-1.8","-proc:none",debugFlag,"-nowarn","-encoding","UTF-8","-maxProblems","30","-bootclasspath",platform.getPath(),"-d",output.getPath(),source.getPath()},messages,messages,null);
+   // -g:none: no debug info at all — local variable and parameter names would otherwise sit in the
+   // DEX as plain text, which could leak a careless identifier the same way a literal string would.
+   boolean ok=org.eclipse.jdt.core.compiler.batch.BatchCompiler.compile(new String[]{"-1.8","-proc:none","-g:none","-nowarn","-encoding","UTF-8","-maxProblems","30","-bootclasspath",platform.getPath(),"-d",output.getPath(),source.getPath()},messages,messages,null);
    messages.flush();if(!ok)throw new IOException("Guard class failed to compile:\n"+log);
    File classJar=new File(work,"compiled.jar");List<File> compiled=new ArrayList<>();collectClasses(output,compiled);
    if(compiled.isEmpty())throw new IOException("The compiler did not emit any classes");
@@ -221,33 +233,12 @@ final class ApkProtect {
 
  static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format("%02x",v&255));return s.toString();}
 
- static String escapeJava(String s){return s.replace("\\","\\\\").replace("\"","\\\"");}
-
- /** Encodes a plaintext string as a Java expression `decodeName(new int[]{...},key)` that decodes
-  * to the same string at runtime via XOR. No quote/backslash escaping needed either, since it
-  * never becomes a string literal in the generated source — just an int array. */
- static String obfLit(String s,int key,String decodeName){
-  StringBuilder sb=new StringBuilder(decodeName).append("(new int[]{");
-  for(int i=0;i<s.length();i++){if(i>0)sb.append(',');sb.append(((int)s.charAt(i))^key);}
-  sb.append("},").append(key).append(')');
-  return sb.toString();
- }
- /** Picks the obfuscated or plain form of a string literal, matching whichever one `obfuscate` asks for. */
- static String lit(String s,boolean obfuscate,int xorKey,String decodeName){
-  return obfuscate?obfLit(s,xorKey,decodeName):"\""+escapeJava(s)+"\"";
- }
-
- static String guardSource(String guardName,boolean obfuscate,int xorKey,String pkg,byte[] certSha256,boolean root,boolean dbg,boolean emulator,boolean frida,boolean screenshot,boolean installSrc,List<String> installPkgs,boolean expiry,long expiryMillis,boolean integrity,boolean tapjacking,boolean mitm){
-  // Identifier names: short/cryptic when obfuscate=true, self-documenting otherwise.
-  String nCheck=obfuscate?"m0":"check", nFail=obfuscate?"m1":"fail", nHex=obfuscate?"m2":"hex",
-   nReadEntry=obfuscate?"m3":"readEntry", nSha256=obfuscate?"m4":"sha256", nDecode=obfuscate?"m5":"decode";
+ static String guardSource(String pkg,byte[] certSha256,boolean root,boolean dbg,boolean emulator,boolean frida,boolean screenshot,boolean installSrc,List<String> installPkgs,boolean expiry,long expiryMillis,boolean integrity,boolean tapjacking,boolean mitm,Names n){
   StringBuilder b=new StringBuilder();
   b.append("package ").append(pkg).append(";\n");
   b.append("import android.app.Application;import android.app.Activity;import android.content.pm.*;import android.content.Context;import android.os.Bundle;import android.view.WindowManager;import java.security.MessageDigest;import java.security.KeyStore;import java.io.*;import java.util.*;\n");
-  b.append("public final class ").append(guardName).append(" extends Application {\n");
-  // Short, meaningless method names instead of self-documenting ones when obfuscate=true, so the
-  // decompiled class doesn't hand a reverse engineer a table of contents.
-  b.append(" @Override public void onCreate(){super.onCreate();try{").append(nCheck).append("(this);}catch(Throwable t){").append(nFail).append("();}\n");
+  b.append("public final class ").append(n.cls).append(" extends Application {\n");
+  b.append(" @Override public void onCreate(){super.onCreate();try{").append(n.mCheck).append("(this);}catch(Throwable t){").append(n.mFail).append("();}\n");
   if(screenshot||tapjacking){
    b.append("  registerActivityLifecycleCallbacks(new Application.ActivityLifecycleCallbacks(){\n");
    b.append("   public void onActivityCreated(Activity a,Bundle s){try{\n");
@@ -258,105 +249,95 @@ final class ApkProtect {
    b.append("  });\n");
   }
   b.append(" }\n");
-  b.append(" static void ").append(nCheck).append("(Context c)throws Exception{\n");
+  b.append(" static void ").append(n.mCheck).append("(Context c)throws Exception{\n");
   if(certSha256!=null){
-   b.append("  String expected=").append(lit(hex(certSha256),obfuscate,xorKey,nDecode)).append(";\n");
+   b.append("  String expected=\"").append(hex(certSha256)).append("\";\n");
+   b.append("  PackageInfo info=c.getPackageManager().getPackageInfo(c.getPackageName(),PackageManager.GET_SIGNATURES);\n");
    b.append("  boolean matched=false;MessageDigest md=MessageDigest.getInstance(\"SHA-256\");\n");
-   // API 28+: GET_SIGNATURES is deprecated and unreliable once an app has multiple signers or a
-   // rotated signing key (v3 scheme). Use SigningInfo and check the CURRENT signer(s) only — not
-   // getSigningCertificateHistory(), which would also accept an old/rotated-away key as valid.
-   b.append("  if(android.os.Build.VERSION.SDK_INT>=28){\n");
-   b.append("   PackageInfo info=c.getPackageManager().getPackageInfo(c.getPackageName(),PackageManager.GET_SIGNING_CERTIFICATES);\n");
-   b.append("   android.content.pm.SigningInfo si=info.signingInfo;\n");
-   b.append("   Signature[] sigs=si==null?null:si.getApkContentsSigners();\n");
-   b.append("   if(sigs!=null)for(Signature s:sigs){md.reset();byte[] d=md.digest(s.toByteArray());if(").append(nHex).append("(d).equals(expected))matched=true;}\n");
-   b.append("  }else{\n");
-   b.append("   PackageInfo info=c.getPackageManager().getPackageInfo(c.getPackageName(),PackageManager.GET_SIGNATURES);\n");
-   b.append("   for(Signature s:info.signatures){md.reset();byte[] d=md.digest(s.toByteArray());if(").append(nHex).append("(d).equals(expected))matched=true;}\n");
-   b.append("  }\n");
-   b.append("  if(!matched)").append(nFail).append("();\n");
+   b.append("  for(Signature s:info.signatures){md.reset();byte[] d=md.digest(s.toByteArray());StringBuilder h=new StringBuilder();for(byte x:d)h.append(String.format(\"%02x\",x&255));if(h.toString().equals(expected))matched=true;}\n");
+   b.append("  if(!matched)").append(n.mFail).append("();\n");
   }
   if(root){
-   String[] rootPaths={"/system/app/Superuser.apk","/sbin/su","/system/bin/su","/system/xbin/su","/data/local/xbin/su","/data/local/bin/su","/system/sd/xbin/su","/system/bin/failsafe/su","/data/local/su","/su/bin/su","/system/bin/magisk","/sbin/magisk"};
-   b.append("  String[] paths={");
-   for(int i=0;i<rootPaths.length;i++){if(i>0)b.append(',');b.append(lit(rootPaths[i],obfuscate,xorKey,nDecode));}
-   b.append("};\n");
-   b.append("  for(String p:paths)if(new File(p).exists())").append(nFail).append("();\n");
-   b.append("  String tags=android.os.Build.TAGS;if(tags!=null&&tags.contains(").append(lit("test-keys",obfuscate,xorKey,nDecode)).append("))").append(nFail).append("();\n");
+   b.append("  String[] paths=").append(dcJoined(n,"/system/app/Superuser.apk","/sbin/su","/system/bin/su","/system/xbin/su","/data/local/xbin/su","/data/local/bin/su","/system/sd/xbin/su","/system/bin/failsafe/su","/data/local/su","/su/bin/su","/system/bin/magisk","/sbin/magisk")).append(".split(\"\\\\|\");\n");
+   b.append("  for(String p:paths)if(new File(p).exists())").append(n.mFail).append("();\n");
+   b.append("  String tags=android.os.Build.TAGS;if(tags!=null&&tags.contains(").append(dc(n,"test-keys")).append("))").append(n.mFail).append("();\n");
   }
   if(dbg){
-   b.append("  if(android.os.Debug.isDebuggerConnected()||android.os.Debug.waitingForDebugger())").append(nFail).append("();\n");
-   b.append("  try(BufferedReader r=new BufferedReader(new FileReader(").append(lit("/proc/self/status",obfuscate,xorKey,nDecode)).append("))){String line;while((line=r.readLine())!=null)if(line.startsWith(").append(lit("TracerPid:",obfuscate,xorKey,nDecode)).append(")&&!line.trim().endsWith(\"0\"))").append(nFail).append("();}catch(Exception ignored){}\n");
+   b.append("  if(android.os.Debug.isDebuggerConnected()||android.os.Debug.waitingForDebugger())").append(n.mFail).append("();\n");
+   b.append("  try(BufferedReader r=new BufferedReader(new FileReader(").append(dc(n,"/proc/self/status")).append("))){String line;while((line=r.readLine())!=null)if(line.startsWith(").append(dc(n,"TracerPid:")).append(")&&!line.trim().endsWith(\"0\"))").append(n.mFail).append("();}catch(Exception ignored){}\n");
   }
   if(emulator){
    b.append("  String fp=android.os.Build.FINGERPRINT,model=android.os.Build.MODEL,manu=android.os.Build.MANUFACTURER,hw=android.os.Build.HARDWARE,prod=android.os.Build.PRODUCT,brand=android.os.Build.BRAND,dev=android.os.Build.DEVICE;\n");
-   b.append("  boolean emu=(fp!=null&&(fp.startsWith(\"generic\")||fp.startsWith(\"unknown\")||fp.contains(\"vbox\")||fp.contains(\"test-keys\")))\n");
-   b.append("   ||(model!=null&&(model.contains(\"google_sdk\")||model.contains(\"Emulator\")||model.contains(\"Android SDK built for\")))\n");
-   b.append("   ||(manu!=null&&manu.toLowerCase().contains(\"genymotion\"))\n");
-   b.append("   ||(brand!=null&&brand.startsWith(\"generic\")&&dev!=null&&dev.startsWith(\"generic\"))\n");
-   b.append("   ||(hw!=null&&(hw.contains(\"goldfish\")||hw.contains(\"ranchu\")))\n");
-   b.append("   ||(prod!=null&&prod.contains(\"sdk\"))\n");
-   b.append("   ||new File(\"/dev/socket/qemud\").exists()||new File(\"/dev/qemu_pipe\").exists();\n");
-   b.append("  if(emu)").append(nFail).append("();\n");
+   b.append("  String[] mk1=").append(dcJoined(n,"generic","unknown","vbox","test-keys")).append(".split(\"\\\\|\");\n");
+   b.append("  String[] mk2=").append(dcJoined(n,"google_sdk","Emulator","Android SDK built for")).append(".split(\"\\\\|\");\n");
+   b.append("  boolean emu=false;\n");
+   b.append("  if(fp!=null)for(String mk:mk1)if(fp.startsWith(mk)||fp.contains(mk))emu=true;\n");
+   b.append("  if(model!=null)for(String mk:mk2)if(model.contains(mk))emu=true;\n");
+   b.append("  if(manu!=null&&manu.toLowerCase().contains(").append(dc(n,"genymotion")).append("))emu=true;\n");
+   b.append("  if(brand!=null&&brand.startsWith(\"generic\")&&dev!=null&&dev.startsWith(\"generic\"))emu=true;\n");
+   b.append("  String[] mk3=").append(dcJoined(n,"goldfish","ranchu")).append(".split(\"\\\\|\");\n");
+   b.append("  if(hw!=null)for(String mk:mk3)if(hw.contains(mk))emu=true;\n");
+   b.append("  if(prod!=null&&prod.contains(").append(dc(n,"sdk")).append("))emu=true;\n");
+   b.append("  String[] mk4=").append(dcJoined(n,"/dev/socket/qemud","/dev/qemu_pipe")).append(".split(\"\\\\|\");\n");
+   b.append("  for(String qp:mk4)if(new File(qp).exists())emu=true;\n");
+   b.append("  if(emu)").append(n.mFail).append("();\n");
   }
   if(frida){
-   b.append("  if(new File(").append(lit("/system/framework/XposedBridge.jar",obfuscate,xorKey,nDecode)).append(").exists())").append(nFail).append("();\n");
-   b.append("  try(BufferedReader r=new BufferedReader(new FileReader(").append(lit("/proc/self/maps",obfuscate,xorKey,nDecode)).append("))){String line;while((line=r.readLine())!=null){String low=line.toLowerCase();if(low.contains(").append(lit("frida",obfuscate,xorKey,nDecode)).append(")||low.contains(").append(lit("xposed",obfuscate,xorKey,nDecode)).append(")||low.contains(").append(lit("substrate",obfuscate,xorKey,nDecode)).append("))").append(nFail).append("();}}catch(Exception ignored){}\n");
+   b.append("  if(new File(").append(dc(n,"/system/framework/XposedBridge.jar")).append(").exists())").append(n.mFail).append("();\n");
+   b.append("  String[] mk5=").append(dcJoined(n,"frida","xposed","substrate")).append(".split(\"\\\\|\");\n");
+   b.append("  try(BufferedReader r=new BufferedReader(new FileReader(").append(dc(n,"/proc/self/maps")).append("))){String line;while((line=r.readLine())!=null){String low=line.toLowerCase();for(String mk:mk5)if(low.contains(mk))").append(n.mFail).append("();}}catch(Exception ignored){}\n");
   }
   if(installSrc){
    b.append("  String installer;\n");
    b.append("  if(android.os.Build.VERSION.SDK_INT>=30){InstallSourceInfo isi=c.getPackageManager().getInstallSourceInfo(c.getPackageName());installer=isi.getInstallingPackageName();}\n");
    b.append("  else installer=c.getPackageManager().getInstallerPackageName(c.getPackageName());\n");
    b.append("  String[] allowed={");
-   for(int i=0;i<installPkgs.size();i++){if(i>0)b.append(',');b.append(lit(installPkgs.get(i),obfuscate,xorKey,nDecode));}
+   for(int i=0;i<installPkgs.size();i++){if(i>0)b.append(',');b.append('"').append(escapeJava(installPkgs.get(i))).append('"');}
    b.append("};\n");
-   b.append("  boolean ok=false;if(installer!=null)for(String a:allowed)if(installer.equals(a))ok=true;\n");
-   b.append("  if(!ok)").append(nFail).append("();\n");
+   b.append("  boolean ok=false;if(installer!=null)for(String al:allowed)if(installer.equals(al))ok=true;\n");
+   b.append("  if(!ok)").append(n.mFail).append("();\n");
   }
   if(expiry){
-   b.append("  if(System.currentTimeMillis()>").append(expiryMillis).append("L)").append(nFail).append("();\n");
+   b.append("  if(System.currentTimeMillis()>").append(expiryMillis).append("L)").append(n.mFail).append("();\n");
   }
   if(integrity){
-   // Meta-data *names* (chGuardDexEntries etc.) are left as plain literals on purpose: they also
-   // have to appear in AndroidManifest.xml in plain text for the OS to read them, so obfuscating
-   // only the dex-side copy buys nothing — `aapt dump badging` already shows them either way.
    b.append("  ApplicationInfo ai=c.getPackageManager().getApplicationInfo(c.getPackageName(),PackageManager.GET_META_DATA);\n");
-   b.append("  android.os.Bundle gmd=ai.metaData;if(gmd==null)").append(nFail).append("();\n");
-   b.append("  String dexEntries=gmd.getString(\"chGuardDexEntries\"),dexHashes=gmd.getString(\"chGuardDexHashes\"),expArsc=gmd.getString(\"chGuardArsc\"),expAssets=gmd.getString(\"chGuardAssets\");\n");
+   b.append("  android.os.Bundle gmd=ai.metaData;if(gmd==null)").append(n.mFail).append("();\n");
+   b.append("  String dexEntries=gmd.getString(\"").append(n.kEntries).append("\"),dexHashes=gmd.getString(\"").append(n.kHashes).append("\"),expArsc=gmd.getString(\"").append(n.kArsc).append("\"),expAssets=gmd.getString(\"").append(n.kAssets).append("\");\n");
    b.append("  java.util.zip.ZipFile zf=new java.util.zip.ZipFile(ai.sourceDir);\n");
    b.append("  try{\n");
    b.append("   if(dexEntries!=null&&dexHashes!=null){\n");
    b.append("    String[] names=dexEntries.split(\",\"),hashes=dexHashes.split(\",\");\n");
-   b.append("    if(names.length!=hashes.length)").append(nFail).append("();\n");
-   b.append("    for(int i=0;i<names.length;i++)if(!").append(nSha256).append('(').append(nReadEntry).append("(zf,names[i])).equals(hashes[i]))").append(nFail).append("();\n");
+   b.append("    if(names.length!=hashes.length)").append(n.mFail).append("();\n");
+   b.append("    for(int i=0;i<names.length;i++)if(!").append(n.mSha256).append("(").append(n.mReadEntry).append("(zf,names[i])).equals(hashes[i]))").append(n.mFail).append("();\n");
    b.append("   }\n");
-   b.append("   if(expArsc!=null){if(!").append(nSha256).append('(').append(nReadEntry).append("(zf,\"resources.arsc\")).equals(expArsc))").append(nFail).append("();}\n");
+   b.append("   if(expArsc!=null){if(!").append(n.mSha256).append("(").append(n.mReadEntry).append("(zf,").append(dc(n,"resources.arsc")).append(")).equals(expArsc))").append(n.mFail).append("();}\n");
    b.append("   if(expAssets!=null){\n");
    b.append("    TreeMap<String,byte[]> sorted=new TreeMap<>();java.util.Enumeration<? extends java.util.zip.ZipEntry> en=zf.entries();\n");
-   b.append("    while(en.hasMoreElements()){java.util.zip.ZipEntry e2=en.nextElement();if(!e2.isDirectory()&&e2.getName().startsWith(\"assets/\"))sorted.put(e2.getName(),").append(nReadEntry).append("(zf,e2.getName()));}\n");
+   b.append("    String assetsPrefix=").append(dc(n,"assets/")).append(";\n");
+   b.append("    while(en.hasMoreElements()){java.util.zip.ZipEntry e2=en.nextElement();if(!e2.isDirectory()&&e2.getName().startsWith(assetsPrefix))sorted.put(e2.getName(),").append(n.mReadEntry).append("(zf,e2.getName()));}\n");
    b.append("    MessageDigest md2=MessageDigest.getInstance(\"SHA-256\");for(Map.Entry<String,byte[]> en2:sorted.entrySet()){md2.update(en2.getKey().getBytes(\"UTF-8\"));md2.update((byte)0);md2.update(en2.getValue());}\n");
-   b.append("    if(!").append(nHex).append("(md2.digest()).equals(expAssets))").append(nFail).append("();\n");
+   b.append("    if(!").append(n.mHex).append("(md2.digest()).equals(expAssets))").append(n.mFail).append("();\n");
    b.append("   }\n");
    b.append("  }finally{zf.close();}\n");
   }
   if(mitm){
    b.append("  try{\n");
-   b.append("   KeyStore caStore=KeyStore.getInstance(\"AndroidCAStore\");caStore.load(null,null);\n");
+   b.append("   KeyStore caStore=KeyStore.getInstance(").append(dc(n,"AndroidCAStore")).append(");caStore.load(null,null);\n");
    b.append("   java.util.Enumeration<String> aliases=caStore.aliases();\n");
-   b.append("   while(aliases.hasMoreElements())if(aliases.nextElement().startsWith(\"user:\"))").append(nFail).append("();\n");
+   b.append("   while(aliases.hasMoreElements())if(aliases.nextElement().startsWith(").append(dc(n,"user:")).append("))").append(n.mFail).append("();\n");
    b.append("  }catch(Throwable t){}\n");
   }
   b.append(" }\n");
-  // hex/decode helpers: always emitted, since the cert check and any lit(...) call under
-  // obfuscate=true both need them regardless of which other protections are on.
-  b.append(" static String ").append(nHex).append("(byte[] d){StringBuilder h=new StringBuilder();for(byte x:d)h.append(String.format(\"%02x\",x&255));return h.toString();}\n");
-  if(obfuscate)b.append(" static String ").append(nDecode).append("(int[] a,int k){char[] c=new char[a.length];for(int i=0;i<a.length;i++)c[i]=(char)(a[i]^k);return new String(c);}\n");
   if(integrity){
-   b.append(" static byte[] ").append(nReadEntry).append("(java.util.zip.ZipFile zf,String name)throws IOException{java.util.zip.ZipEntry e2=zf.getEntry(name);if(e2==null)return new byte[0];ByteArrayOutputStream o=new ByteArrayOutputStream();InputStream in=zf.getInputStream(e2);byte[] buf=new byte[65536];int n;while((n=in.read(buf))>0)o.write(buf,0,n);in.close();return o.toByteArray();}\n");
-   b.append(" static String ").append(nSha256).append("(byte[] d)throws Exception{return ").append(nHex).append("(MessageDigest.getInstance(\"SHA-256\").digest(d));}\n");
+   b.append(" static byte[] ").append(n.mReadEntry).append("(java.util.zip.ZipFile zf,String name)throws IOException{java.util.zip.ZipEntry e2=zf.getEntry(name);if(e2==null)return new byte[0];ByteArrayOutputStream o=new ByteArrayOutputStream();InputStream in=zf.getInputStream(e2);byte[] buf=new byte[65536];int bn;while((bn=in.read(buf))>0)o.write(buf,0,bn);in.close();return o.toByteArray();}\n");
+   b.append(" static String ").append(n.mSha256).append("(byte[] d)throws Exception{return ").append(n.mHex).append("(MessageDigest.getInstance(\"SHA-256\").digest(d));}\n");
+   b.append(" static String ").append(n.mHex).append("(byte[] d){StringBuilder h=new StringBuilder();for(byte x:d)h.append(String.format(\"%02x\",x&255));return h.toString();}\n");
   }
-  b.append(" static void ").append(nFail).append("(){android.os.Process.killProcess(android.os.Process.myPid());System.exit(1);}\n");
+  b.append(" static String ").append(n.mDecode).append("(String s,int k){byte[] dd=java.util.Base64.getDecoder().decode(s);byte[] oo=new byte[dd.length];for(int i=0;i<dd.length;i++)oo[i]=(byte)(dd[i]^k);return new String(oo,java.nio.charset.StandardCharsets.UTF_8);}\n");
+  b.append(" static void ").append(n.mFail).append("(){android.os.Process.killProcess(android.os.Process.myPid());System.exit(1);}\n");
   b.append("}\n");
   return b.toString();
  }
+ static String escapeJava(String s){return s.replace("\\","\\\\").replace("\"","\\\"");}
 }

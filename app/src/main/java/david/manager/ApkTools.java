@@ -344,7 +344,8 @@ public final class ApkTools {
   byte[] p12=ApkSigning.customP12;if(p12==null)return new JSONObject().put("custom",false).put("name","Development key (public, bundled)");
   KeyStore ks=KeyStore.getInstance("PKCS12");ks.load(new ByteArrayInputStream(p12),ApkSigning.customPass);String alias=ApkSigning.firstKey(ks);
   X509Certificate c=(X509Certificate)ks.getCertificate(alias);
-  return new JSONObject().put("custom",true).put("alias",alias).put("subject",c.getSubjectX500Principal().getName()).put("validTo",c.getNotAfter().getTime()).put("sha256",hex(MessageDigest.getInstance("SHA-256").digest(c.getEncoded())));
+  long ageDays=(System.currentTimeMillis()-c.getNotBefore().getTime())/(24L*60*60*1000);
+  return new JSONObject().put("custom",true).put("alias",alias).put("subject",c.getSubjectX500Principal().getName()).put("validTo",c.getNotAfter().getTime()).put("sha256",hex(MessageDigest.getInstance("SHA-256").digest(c.getEncoded()))).put("createdAt",c.getNotBefore().getTime()).put("ageDays",ageDays);
  }
  static String hex(byte[] b){StringBuilder s=new StringBuilder();for(byte v:b)s.append(String.format("%02x",v&255));return s.toString();}
  static void install(byte[] p12,char[] storePass,char[] keyPass,String alias)throws Exception{

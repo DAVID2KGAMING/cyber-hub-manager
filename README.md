@@ -1,4 +1,4 @@
-# DB Manager — 0.2.2 development build
+# DB Manager — 0.2.3 development build
 
 Android file manager and APK/DEX editor using a local WebView interface and native Java tools. Core tools work offline. Android 8.0 / API 26 or newer is required.
 
@@ -30,6 +30,7 @@ Open an APK → **Function**, or select files/folders:
   - Block tapjacking (ignores touches while another app's window is drawn on top, the standard Android defence)
   - Stop if a user-added CA certificate is installed (a common sign of a MITM proxy such as Charles/Fiddler/Burp inspecting the app's traffic)
   The original APK is never changed; the result is a new `-protected.apk`, signed and verified.
+  Every run randomizes the guard's class name, method names, and meta-data keys, and every literal "signal" string (root paths, Frida/Xposed markers, proc paths, the MITM keystore name, ...) is XOR+Base64-obfuscated and decoded only at runtime — two protected APKs never share a fingerprint, and a plain `strings` dump of the DEX shows none of what is actually being checked.
 
 Not included: SFTP (needs an SSH library; only FTP/FTPS exist), merging several DEX files into one, one-tap ad removal (needs code edits, not just permissions), decoding `resources.arsc` to `values/*.xml` or DEX to Smali folders on disk, and brand-new symbolic resources. Cloned apps that check their own signature, package name or licence server may not run.
 

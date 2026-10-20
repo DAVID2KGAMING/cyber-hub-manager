@@ -22,7 +22,7 @@ subprocess.run(['java','-jar',str(ecj),'-11','-proc:none','-nowarn','-cp',compil
 target=B/('core-test-'+uuid.uuid4().hex[:8]);reference=sys.argv[1] if len(sys.argv)>1 else str(P/'tests/fixtures/resources.zip')
 run=['java','-Djava.io.tmpdir='+str(B/'tmp'),'-cp',str(B/'testclasses')+os.pathsep+cp]
 subprocess.run(run+['david.manager.CoreSmokeTest',str(target),reference],env=env,check=True)
-subprocess.run(run+['david.manager.ApkSmokeTest',str(P/'dist/DB-Manager-0.2.2.apk'),str(target/'roundtrip.apk'),str(P/'app/src/main/assets/development-signing.p12')],env=env,check=True)
+subprocess.run(run+['david.manager.ApkSmokeTest',str(P/'dist/DB-Manager-0.2.3.apk'),str(target/'roundtrip.apk'),str(P/'app/src/main/assets/development-signing.p12')],env=env,check=True)
 
 subprocess.run(run+['david.manager.DexTreeSmokeTest',str(target)],env=env,check=True)
 
