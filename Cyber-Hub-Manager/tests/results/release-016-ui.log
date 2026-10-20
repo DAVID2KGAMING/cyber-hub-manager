@@ -1,0 +1,116 @@
+
+startup-smoke
+PASS normal: visible startup state; protected Window.location unchanged
+PASS denied-storage: visible startup state; protected Window.location unchanged
+PASS bad-preferences: visible startup state; protected Window.location unchanged
+PASS bridge-error: visible startup state; protected Window.location unchanged
+PASS no-bridge: visible startup state; protected Window.location unchanged
+PASS timeout: visible startup state; protected Window.location unchanged
+PASS script-error: visible startup state; protected Window.location unchanged
+PASS missing-editor: visible startup state; protected Window.location unchanged
+ALL 8 STARTUP CHECKS PASSED (V8/DOM; Android WebView is not emulated)
+
+dom-smoke
+PASS dual-pane file manager DOM
+PASS APK metadata dialog
+PASS MultiDex selection
+PASS Smali edit and native save request
+PASS Java source is editable
+PASS reference Java menu actions
+PASS soft wrap
+PASS jump to line
+PASS search actual editor text
+PASS switch decompiler dispatch
+PASS Java export dispatch
+PASS editor preferences
+PASS all tool navigation entries
+PASS MCP service controls
+PASS terminal native dispatch
+PASS no JavaScript errors in DOM harness
+ALL 16 DOM CHECKS PASSED (layout and Android WebView not emulated)
+
+layout-smoke
+PASS toolbar, navigation and all SVGs have reference-size bounds
+PASS compact file rows, filled folders and stacked metadata
+PASS APK title/icon and metadata remain bounded with three actions
+PASS MultiDex uses stacked actions and reference-size checkboxes
+PASS DEX root uses compact rows without an oversized parent row
+PASS package expansion retains root siblings
+PASS nested package expansion has bounded chevrons and class icons
+PASS Smali starts at the reference reading scale
+PASS Java viewer and eight-action menu have explicit dimensions
+PASS returning from the editor preserves expanded branches
+PASS collapse and reopen retain child state
+PASS drawer groups collapse and use compact rows
+PASS no JavaScript errors during nested navigation
+ALL 13 LAYOUT/INTERACTION CHECKS PASSED (computed CSS, not rendered pixels)
+
+video-ui-smoke
+PASS compass opens bounded class/field/method Navigation
+PASS navigation live search
+PASS duplicate string occurrences select exact source and method range
+PASS member-action preferences persist and affect the menu
+PASS member copy uses exact signature and typed Xposed accessors
+PASS pencil menu includes all video actions and duplication is undoable
+PASS comment and indentation operations change live code reversibly
+PASS case conversion and replace line edit actual text
+PASS register growth preserves parameter aliases and ignores strings/comments
+PASS line menu customization persists
+PASS editor back assembles changes; project Save and exit commits after Cancel works
+PASS backup Rename dialog restores and remembers Never show
+PASS multi-selection count, action grid and clear controls
+PASS all archive formats/levels and password/split/other-pane controls dispatch real parameters
+PASS format-specific controls are honest; no JavaScript errors
+ALL 15 VIDEO UI CHECKS PASSED (DOM/declared CSS, not device rendering)
+
+motion-zoom-smoke
+PASS sidebar has working overflow options; selecting one dismisses sidebar
+PASS rapid drawer close/reopen keeps new content and isolates closing snapshot
+PASS prompt replacement resolves cancel once without removing the new dialog
+PASS vertical edge drag remains normal scrolling
+PASS edge swipe opens sidebar and settles after finger release
+PASS horizontal swipe closes drawer and suppresses accidental row clicks
+PASS Smali pinch enlarges font while preserving text, cursor and clean state
+PASS pinch shrinks text and respects the 4–32 px bounds
+PASS Java pinch preserves editable source and retains independent Smali/Java preferences
+PASS reopening Java and Smali restores saved sizes without duplicate gesture UI
+PASS one finger retains normal editor touch scrolling
+PASS interrupted pinch cleans up and does not trap later touches
+PASS side ellipsis opens editor menu and accessible zoom controls work
+PASS keyboard zoom and reset work without editing Java
+PASS zoom anchor math uses the post-layout scroll position after clamping
+PASS pinch preference and reduced-motion setting are respected
+PASS sidebar inspection and zoom never save or discard unsaved code
+PASS leaving editor disposes gesture state and preserves normal Smali saving
+PASS standalone XML and text also support independent pinch zoom
+PASS no JavaScript errors across gesture, menu and prompt transitions
+ALL 20 MOTION/ZOOM CHECKS PASSED (synthetic touch/DOM; not physical-device rendering)
+
+java-edit-ui-smoke
+PASS Java has real editing, undo, save and Smali-switch controls
+PASS dirty tracking follows edits, undo and redo without buffer comparison
+PASS duplicate saves compile once and editing unlocks after native completion
+PASS failed Java compile blocks navigation, keeps buffer and jumps to diagnostic line
+PASS buffer changes during async save are never incorrectly marked clean
+PASS Java line tools use Java comments and omit Smali-only register actions
+PASS Find and replace changes actual code in one undoable operation
+PASS Save and sign calls native verification workflow and install uses its actual output
+PASS exporting a copy does not falsely mark original project as saved
+PASS overlay closing moves existing content without cloning the DOM
+PASS no JavaScript errors across Java editing and save/sign states
+ALL 11 JAVA EDIT UI CHECKS PASSED (mock native bridge; no Android runtime)
+
+apks-ui-smoke
+PASS APKS tap exposes conversion, browse and extract actions
+PASS conversion dialog shows actual entries, output path and signing behavior
+PASS invalid output names cannot start conversion
+PASS native conversion receives source fingerprint, selected variant and destination
+PASS stage updates belong only to the active conversion
+PASS back and repeated conversion cannot abandon or duplicate a running job
+PASS success offers installation of the verified output path
+PASS long-press file menu includes direct conversion
+PASS multiple variants require an explicit selection instead of mixing APK sets
+PASS failed merge shows the native error, clears progress, and permits retry
+PASS APKS inside an archive defaults to a writable workspace output
+PASS no JavaScript errors across conversion states
+ALL 12 APKS UI CHECKS PASSED (mock native bridge; no Android runtime)

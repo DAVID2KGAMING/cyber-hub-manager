@@ -40,7 +40,6 @@ public final class ApkTools {
    case "ksGenerate":return ksGenerate(e,a);
    case "ksExport":return ksExport(e,a);
    case "ksReset":return ksReset(e);
-   case "protectDetect":return ApkProtect.detect(new File(a.getString("path")));
    case "protectInfo":return ApkProtect.info(new File(a.getString("path")));
    case "protect":return ApkProtect.run(e,a);
    default:throw new IOException("Unknown APK tool: "+op);
@@ -82,6 +81,15 @@ public final class ApkTools {
  static String setAttr(String tag,String attr,String value){
   Matcher m=Pattern.compile("(\\b"+Pattern.quote(attr)+"=\")[^\"]*(\")").matcher(tag);
   if(!m.find())return tag;return m.replaceFirst(Matcher.quoteReplacement(m.group(1)+escape(value)+m.group(2)));
+ }
+ /** Like setAttr, but adds the attribute (just after the tag name) when it isn't already present. */
+ static String setOrAddAttr(String tag,String attr,String value){
+  Matcher m=Pattern.compile("(\\b"+Pattern.quote(attr)+"=\")[^\"]*(\")").matcher(tag);
+  if(m.find())return m.replaceFirst(Matcher.quoteReplacement(m.group(1)+escape(value)+m.group(2)));
+  Matcher name=Pattern.compile("^<([A-Za-z0-9_.:-]+)").matcher(tag);
+  if(!name.find())return tag;
+  int at=name.end();
+  return tag.substring(0,at)+" "+attr+"=\""+escape(value)+"\""+tag.substring(at);
  }
  static String attr(String tag,String attr){return find(tag,"\\b"+Pattern.quote(attr)+"=\"([^\"]*)\"",1);}
  static String escape(String s){return s.replace("&","&amp;").replace("<","&lt;").replace("\"","&quot;");}

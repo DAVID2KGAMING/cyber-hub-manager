@@ -38,7 +38,7 @@ key=P/'app/src/main/assets/development-signing.p12'
 if not key.exists():
  run(['keytool','-J-Dkeystore.pkcs12.legacy','-genkeypair','-keystore',key,'-storetype','PKCS12','-storepass','cyberhub-development','-keypass','cyberhub-development','-alias','cyberhub-dev','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Cyber Hub Manager Development, O=Cyber Hub, C=IN'])
 resources=B/'resources.zip';run(native('aapt2','compile','--dir',P/'app/src/main/res','-o',resources))
-base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','12','--version-name','0.2.1',resources))
+base=B/'base.apk';run(native('aapt2','link','-o',base,'-I',ANDROID,'--manifest',P/'app/src/main/AndroidManifest.xml','-A',P/'app/src/main/assets','--auto-add-overlay','--version-code','13','--version-name','0.2.2',resources))
 classjar=B/'app-classes.jar'
 with zipfile.ZipFile(classjar,'w',zipfile.ZIP_DEFLATED) as z:
  for f in classes.rglob('*.class'):z.write(f,f.relative_to(classes))
@@ -63,7 +63,7 @@ with zipfile.ZipFile(unsigned,'a',zipfile.ZIP_DEFLATED) as z:
  for n,b in entries.items():z.writestr(n,b)
  for n,lines in services.items():z.writestr(n,'\n'.join(sorted(lines))+'\n')
 aligned=B/'aligned.apk';run(native('zipalign','-f','4',unsigned,aligned))
-output=P/'dist';output.mkdir(exist_ok=True);apk=output/'DB-Manager-0.2.1.apk'
+output=P/'dist';output.mkdir(exist_ok=True);apk=output/'DB-Manager-0.2.2.apk'
 signed=B/('signed-'+uuid.uuid4().hex+'.apk')
 run(java('-jar',BT/'lib/apksigner.jar','sign','--ks',key,'--ks-pass','pass:cyberhub-development','--key-pass','pass:cyberhub-development','--out',signed,aligned))
 run(java('-jar',BT/'lib/apksigner.jar','verify','--verbose',signed))

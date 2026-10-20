@@ -32,7 +32,7 @@
     box.className = 'bootStatus';
     box.appendChild(element('h2', 'Unable to start'));
     box.appendChild(element('p', 'Please retry. If this happens again, share the error details below.'));
-    var details = element('pre', 'DB Manager 0.2.1\n' + message + '\n\n' + navigator.userAgent);
+    var details = element('pre', 'DB Manager 0.2.2\n' + message + '\n\n' + navigator.userAgent);
     details.className = 'bootDetails';
     box.appendChild(details);
     var retry = element('button', 'RETRY');
