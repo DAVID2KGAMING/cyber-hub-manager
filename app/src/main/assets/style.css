@@ -1,342 +1,358 @@
-:root{--bg:#303030;--bar:#141414;--code:#292929;--dialog:#424242;--line:#414141;--text:#c8c8c8;--muted:#8e8e8e;--blue:#2586d0;--icon:#111;--hover:#393939;--gutter:#383b3d}
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:var(--bg);color:var(--text);font-family:Roboto,"Arial",sans-serif;font-size:14px;overscroll-behavior:none;-webkit-text-size-adjust:100%}
-body.light{--bg:#fafafa;--bar:#eeeeee;--code:#fff;--dialog:#fff;--line:#ddd;--text:#353535;--muted:#777;--icon:#e1e1e1;--hover:#eee;--gutter:#eee}
-button,input,select,textarea{font:inherit}
-button{color:inherit;border:0;background:none;cursor:pointer}
-button:disabled{opacity:.35;cursor:default}
-button:focus-visible,a:focus-visible{outline:2px solid var(--blue)}
-#app{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden}
-#toolbar{height:56px;min-height:56px;display:flex;align-items:center;background:var(--bar);border-bottom:1px solid #333;padding:0 4px}
-.iconbtn{width:48px;height:48px;flex:none;display:flex;align-items:center;justify-content:center;border-radius:2px;padding:0}
-.iconbtn:active{background:#ffffff14}
-.iconbtn svg{width:24px;height:24px}
-.titleblock{flex:1;min-width:0;padding:0 8px}
-.title{font-size:20px;font-weight:500;line-height:25px;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
-.subtitle{font-size:12px;line-height:16px;color:#aaa;white-space:pre;overflow:hidden;text-overflow:ellipsis;margin-top:0}
-.pathTitle{font-size:20px;text-align:left;white-space:nowrap}
-.editorActions{display:flex;flex:1;justify-content:space-around}
-.editorActions .iconbtn{width:40px}
-.editorTitle{font-size:19px}
-.brandMark{display:grid;place-items:center;width:44px;height:44px;border:2px solid #4b9dd8;border-radius:12px;color:#d6eaff;font:700 18px monospace;background:#20252e}
-.mainbrand{display:flex;align-items:center;gap:13px}
-.mainbrand .title{font-size:21px}
-#subbar:empty{display:none}
-#subbar{flex:none}
-.filepanes{display:flex;height:100%;width:100%}
-.pane{width:50%;overflow-y:auto;overflow-x:hidden;border-right:1px solid #242424;position:relative;scrollbar-width:thin;scrollbar-color:#686868 transparent;box-shadow:inset -2px 0 4px #0002}
-.pane:last-child{border-right:0}
-.pane.active{box-shadow:inset -1px 0 3px #0004}
-.file{width:100%;display:flex;align-items:center;text-align:left;padding:4px 5px;min-height:40px;user-select:none}
-.file:active,.file.selected{background:var(--hover)}
-.fileicon{width:28px;height:28px;border-radius:5px;flex:none;display:flex;align-items:center;justify-content:center;background:var(--icon);color:#ccc;margin-right:4px}
-.fileicon svg{width:18px;height:18px}
-.fileicon.apk{background:transparent;color:#8ab990}
-.fileicon.apk svg{width:28px;height:28px}
-.fileicon.xml,.fileicon.java,.fileicon.smali{background:#354e9b;color:#ddd}
-.fileicon.dex{background:#377c80}
-.fileicon.arsc{background:#a57306}
-.fileicon.zip,.fileicon.apks{background:#927367}
-.fileinfo{min-width:0;flex:1}
-.filename{font-size:14px;line-height:18px;word-break:break-word;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
-.filemeta{display:block;font-size:10px;line-height:14px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:clip;margin:0}
-.parent .filename{color:var(--muted)}
-#content{flex:1;min-height:0;overflow:hidden;position:relative}
-#bottom{height:46px;min-height:46px;display:flex;align-items:center;justify-content:space-around;border-top:1px solid #414141;background:var(--bg)}
-#bottom:empty{display:none}
-.bottom-key{font-size:20px;color:#aeb9c4;min-width:35px;height:45px}
-.empty{padding:30px 15px;color:var(--muted);font-size:13px;line-height:1.7;white-space:normal}
-.empty .primary{display:block;margin-top:16px}
-.permission{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;background:#263b4d;color:#c3d7e8;font-size:12px}
-.permission button{color:#73bbef;font-weight:600;white-space:nowrap}
-.primary{color:var(--blue);text-transform:uppercase;font-size:14px;font-weight:500;padding:12px 14px}
-.drawerShade,.shade{position:fixed;inset:0;background:#0009;z-index:20}
-.drawer{position:fixed;left:0;top:0;bottom:0;width:85vw;max-width:320px;background:var(--bg);z-index:21;overflow-y:auto;box-shadow:8px 0 20px #0006;animation:slide .16s ease-out}
-.drawerHead{padding:16px;background:var(--bar)}
-.drawerTop{display:flex;align-items:center}
-.drawerTop .titleblock{padding:0 8px;min-width:0}
-.drawerTop .title{font-size:18px;line-height:24px}
-.sectionLabel{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;min-height:36px;width:100%;color:var(--muted);font-size:12px;text-align:left}
-.drawerRow{display:flex;align-items:center;min-height:40px;padding:6px 16px;width:100%;text-align:left;font-size:14px}
-.circleicon{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#202020;flex:none;margin-right:14px}
-.circleicon svg{width:16px;height:16px}
-.meter{height:2px;background:#888;margin:8px 0 4px}
-.meter span{display:block;background:var(--blue);height:100%;max-width:100%}
-.storage{flex:1;min-width:0}
-.storage .small{font-size:10px;color:var(--muted)}
-.dialog{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:calc(100% - 50px);max-width:430px;max-height:calc(100vh - 32px);overflow-y:auto;background:var(--dialog);border-radius:2px;z-index:31;box-shadow:0 18px 35px #0006;padding:24px 24px 8px;color:var(--text)}
-#modalLayer .shade{z-index:30}
-.dialog h2{font-size:20px;font-weight:500;margin:0 0 12px;line-height:26px}
-.dialog p{font-size:14px;line-height:1.6;margin:12px 0}
-.dialog .actions{display:flex;justify-content:flex-end;flex-wrap:wrap;margin-top:12px}
-.dialog .actions button{color:var(--blue);text-transform:uppercase;min-height:36px;padding:8px 8px;font-size:14px;line-height:20px;font-weight:500;white-space:nowrap}
-.dialog input:not([type=checkbox]):not([type=range]),.dialog select,.toolinput{background:transparent;border:0;border-bottom:2px solid var(--blue);color:var(--text);padding:10px 0;width:100%;outline:none;margin:4px 0 12px}
-.dialog select option{background:var(--dialog)}
-.dialog label{font-size:13px;color:#bbb;display:block;margin-top:10px}
-.dialog input[type=checkbox]{-webkit-appearance:none;appearance:none;width:18px;height:18px;border:2px solid #999;border-radius:2px;margin:0 28px 0 2px;flex:none;position:relative;background:transparent}
-.checkrow{display:flex!important;align-items:center;min-height:48px;font-size:18px!important;line-height:24px;margin:0!important;color:#f4f4f4!important}
-.options .option{display:flex;align-items:center;min-height:48px;text-align:left;width:100%;font-size:18px;padding:0}
-.options .option svg{width:23px;height:23px;flex:none}
-.option .radio{width:20px;height:20px;border:2px solid #999;border-radius:50%;flex:none;margin:0 26px 0 2px}
-.dataGrid{display:grid;grid-template-columns:42% 58%;font-size:16px;line-height:20px;grid-row-gap:5px;margin-top:14px}
-.dataGrid .value{display:block;min-width:0;color:#aaa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;padding:0;font:inherit;line-height:20px}
-.apkHead{display:flex;align-items:center;height:48px;min-width:0}
-.apkHead .brandMark{width:48px;height:48px;flex:none;border-radius:50%}
-.apkHead h2{margin:0;font-size:20px;line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:400}
-.apkHead .subtitle{font-size:12px;line-height:18px;margin-top:4px}
-.overflowShade{position:fixed;inset:0;z-index:40}
-.overflowMenu{position:fixed;right:0;top:4px;background:#303030;box-shadow:0 12px 20px #0006;width:196px;max-width:calc(100vw - 16px);max-height:calc(100vh - 8px);overflow-y:auto;z-index:41;border-radius:2px;padding:0;color:#c8c8c8}
-.overflowMenu button{display:flex;align-items:center;width:100%;min-height:48px;font-size:16px;text-align:left;padding:8px 10px}
-.overflowMenu svg{width:24px;height:24px;flex:none;margin-right:6px}
-.overflowMenu .end{margin-left:auto;color:#999}
-.tabs{display:flex;height:48px;border-bottom:0;background:var(--bg)}
-.tab{font-size:14px;text-transform:uppercase;color:var(--muted);flex:1;min-width:0;border-bottom:2px solid transparent;padding:0;line-height:46px}
-.tab.active{border-bottom-color:var(--blue);color:var(--text)}
-.tree{height:100%;overflow:auto;padding:0 0 12px;scrollbar-width:thin}
-.treeRow{display:flex;align-items:center;min-height:33px;height:33px;padding:0 10px;width:100%;text-align:left;font-size:14px;white-space:nowrap}
-.treeRow .chevron{width:10px;height:18px;flex:none;display:flex;align-items:center;justify-content:center;margin-right:5px;color:#bdbdbd}
-.treeRow .fileicon{width:22px;height:22px;border-radius:6px;margin-right:6px}
-.treeRow .classicon{width:22px;height:22px;border-radius:50%;background:#354f9c;display:flex;align-items:center;justify-content:center;color:#c2d4f9;font-size:14px;flex:none;margin-right:6px}
-.treeRow .treename{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;line-height:20px}
-.breadcrumbs{padding:9px 13px;color:#aebdcc;font-size:12px;background:#252525;overflow-wrap:anywhere}
-.editorInfo{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 15px;font-size:12px;line-height:20px;background:var(--bar);border-bottom:1px solid var(--line)}
-.editorInfo span:first-child{max-width:75%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.CodeMirror{height:100%;font-family:'Droid Sans Mono',monospace;font-size:12px;line-height:1.4;background:var(--code);color:#b4bec8}
-.CodeMirror-gutters{background:var(--gutter);border-right:1px solid #4b4b4b}
-.CodeMirror-linenumber{color:#888;min-width:0;padding:0 3px 0 2px}
-.CodeMirror-lines{padding:0}
-.CodeMirror-cursor{border-left:1px solid #cbd5df}
-.CodeMirror-selected{background:#536b7e!important}
-.cm-s-cyber .cm-keyword{color:#ba9bc6}
-.cm-s-cyber .cm-string{color:#819762}
-.cm-s-cyber .cm-number,.cm-s-cyber .cm-atom{color:#b8aa73}
-.cm-s-cyber .cm-comment{color:#818181;font-style:italic}
-.cm-s-cyber .cm-variable-3,.cm-s-cyber .cm-type{color:#989529}
-.cm-s-cyber .cm-tag{color:#d7bd77}
-.cm-s-cyber .cm-attribute{color:#ad91c4}
-.cm-s-cyber .cm-def{color:#bbc5ce}
-.cm-s-cyber .cm-meta{color:#9da545}
-.cm-searching{background:#9b763b99}
-.javaEditor .cm-keyword{color:#b68d54}
-.javaEditor .cm-type{color:#b4bec8}
-.CodeMirror-scrollbar-filler,.CodeMirror-gutter-filler{background:var(--code)}
-.toolpage{height:100%;overflow:auto;padding:16px}
-.toolpage h3{font-size:18px;font-weight:500;margin:7px 0 16px}
-.toolpage p{color:var(--muted);line-height:1.6;font-size:13px}
-.listrow{padding:13px 8px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);width:100%;text-align:left}
-.listrow .main{flex:1;min-width:0;overflow-wrap:anywhere}
-.listrow small{display:block;color:var(--muted);margin-top:5px;font-size:11px;overflow-wrap:anywhere}
-.listrow svg{width:23px;height:23px;flex:none}
-.searchline{display:flex;align-items:center;gap:7px;padding:9px 13px;border-bottom:1px solid var(--line)}
-.searchline input{background:transparent;outline:0;border:0;color:var(--text);font:inherit;flex:1;min-width:0}
-.searchline button{color:var(--blue);padding:7px}
-.terminal{font:12px/1.6 monospace;white-space:pre-wrap;overflow-wrap:anywhere;min-height:100px;color:#c6d4c1;user-select:text}
-.banner{padding:12px;background:#263748;color:#afcde4;font-size:12px;line-height:1.6;margin-bottom:14px;border-radius:3px}
-.pill{font-size:11px;color:#a0c9e9;background:#274259;padding:3px 6px;border-radius:3px}
-.progresslabel{color:var(--muted);font-size:12px;margin:12px 0}
-#toast{position:fixed;bottom:65px;left:50%;transform:translateX(-50%);max-width:88vw;width:max-content;z-index:100;background:#111e;color:#eee;border-radius:5px;padding:11px 16px;font-size:13px;line-height:1.5;display:none;box-shadow:0 5px 15px #0005}
-#progress{height:2px;background:var(--blue);width:30%;position:fixed;top:55px;left:0;z-index:99;display:none;animation:progress 1s ease-in-out infinite}
-body.busy #progress{display:block}
-input[type=range]{accent-color:var(--blue);width:100%}
-.break{overflow-wrap:anywhere;user-select:text}
-.closeapp{position:absolute;bottom:10px;width:100%}
-@keyframes progress{0%{left:-30%}
-100%{left:100%}
-}
-@keyframes slide{from{transform:translateX(-100%)}
-to{transform:translateX(0)}
+:root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-hover: #334155;
+    --primary: #3b82f6;
+    --primary-hover: #2563eb;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    --border: #334155;
+    --icon: #cbd5e1;
+    --dialog-bg: rgba(30, 41, 59, 0.85);
+    --glass-blur: blur(16px);
+    --radius: 12px;
+    --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+    --code-bg: #0b1120;
+    --gutter: #1e293b;
+    --line-highlight: rgba(59, 130, 246, 0.1);
 }
 
-/* Fallback sizes/positions for the Android 8 WebView; newer rules enhance them. */
-.bootStatus{padding:24px;line-height:1.6;height:100%;overflow:auto}
-.bootStatus h2{font-size:20px;font-weight:500}
-.bootStatus p{color:var(--muted)}
-.bootDetails{white-space:pre-wrap;word-wrap:break-word;font:12px/1.5 monospace;user-select:text}
-.drawerShade,.shade,.overflowShade{top:0;right:0;bottom:0;left:0}
+body.light {
+    --bg: #f8fafc;
+    --surface: #ffffff;
+    --surface-hover: #f1f5f9;
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --text: #0f172a;
+    --text-muted: #64748b;
+    --border: #e2e8f0;
+    --icon: #475569;
+    --dialog-bg: rgba(255, 255, 255, 0.85);
+    --shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+    --code-bg: #ffffff;
+    --gutter: #f1f5f9;
+    --line-highlight: rgba(37, 99, 235, 0.05);
+}
 
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
 
-/* Every SVG has intrinsic dimensions as well as a CSS size. */
-.appIcon{display:block;width:24px;height:24px;max-width:100%;flex:none}
-.fileicon img{display:block;width:28px;height:28px;object-fit:contain;border-radius:5px}
-.treeRow .chevron svg{width:10px;height:14px}
-.treeRow.classRow{padding-left:22px}
-.treeRow[aria-expanded="true"] .chevron{transform:rotate(90deg)}
-.treeChildren{padding-left:25px}
-.treeRow:active{background:var(--hover)}
-.treeMessage{font-size:12px;color:var(--muted);padding:8px 15px;white-space:normal}
-.apkDialog{padding:16px 16px 8px}
-.apkHead>img{width:48px;height:48px;object-fit:contain;flex:none}
-.apkHead .apkTitle{flex:1;min-width:0;margin-left:12px}
-.apkDialog .actions{margin-top:8px;flex-wrap:nowrap;justify-content:space-between}
-.apkDialog .actions button:first-child{margin-right:auto}
-.apkDialog .actions button{padding:8px;min-width:60px}
-.multidexDialog h2{margin-bottom:0}
-.multidexDialog .actions{flex-direction:column;align-items:flex-end;margin-top:0}
-.multidexDialog .actions button{height:48px;flex:none;padding:0;min-width:48px;text-align:right}
-.dialog input[type=checkbox]:checked{background:#1976d2;border-color:#1976d2}
-.dialog input[type=checkbox]:checked:after{content:"";display:block;position:absolute;width:6px;height:11px;border:solid #424242;border-width:0 2px 2px 0;transform:rotate(45deg);left:4px;top:0}
-.options .option>svg{margin-right:24px}
-.optionsDialog .actions:empty{display:none}
-.drawer .brandMark{width:40px;height:40px;border-radius:50%;font-size:17px;flex:none}
-.drawer #themeToggle{width:36px}
-.drawerGroup[hidden]{display:none}
-.sectionLabel svg{width:14px;height:14px}
-.sectionLabel[aria-expanded="true"] svg{transform:rotate(180deg)}
-#content:not(.javaEditor) .CodeMirror{line-height:1.25}
-.javaEditor .CodeMirror{line-height:1.2}
-.editorActions{min-width:0}
-.editorActions .iconbtn{width:20%;min-width:0}
-#bottom.editorBottom{height:38px;min-height:38px}
-#bottom.editorBottom .bottom-key{height:36px;font-size:18px}
-@media(max-width:330px){.dialog{width:calc(100% - 32px)}.apkDialog{padding-left:12px;padding-right:12px}.dataGrid{font-size:14px}.apkHead h2{font-size:18px}.tab{font-size:12px}}
-.optionsDialog{padding-bottom:10px}
-.optionsDialog h2{margin-bottom:0}
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
+    transition: background 0.3s, color 0.3s;
+}
 
-/* Video reference: navigation, editing, selection and archive dialogs. */
-.file.selected{background:#285361}
-.file.selected .filename{color:#d7e9ed}
-.fileActionMenu{position:fixed;z-index:41;left:50%;top:50%;transform:translate(-50%,-50%);width:calc(100% - 48px);max-width:420px;max-height:calc(100vh - 40px);overflow-y:auto;background:var(--bg);box-shadow:0 6px 24px #0008;border-radius:2px}
-.actionHint{font-size:11px;line-height:15px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line)}
-.actionGrid{display:grid;grid-template-columns:1fr 1fr;padding:4px}
-.actionGrid button{display:flex;align-items:center;min-width:0;min-height:46px;padding:8px 7px;font-size:14px;text-align:left;gap:8px}
-.actionGrid button svg{width:22px;height:22px;flex:none}
-.actionGrid button span{min-width:0;overflow-wrap:anywhere}
-.navigationDialog{padding:20px 24px 8px;display:flex;flex-direction:column;max-height:calc(100vh - 80px)}
-.navigationDialog h2{display:flex;align-items:center;justify-content:space-between;flex:none}
-.navigationDialog h2 .iconbtn{width:32px;height:28px}
-.navigationDialog h2 svg{width:20px;height:20px}
-.navigationDialog .dialogBody{min-height:0;overflow-y:auto}
-.navigationDialog .actions{flex-wrap:nowrap;justify-content:space-between;margin-top:12px;flex:none}
-.navigationDialog .actions button{font-size:12px;padding:8px 0}
-.navRow{display:flex;align-items:center;width:100%;min-height:40px;text-align:left;padding:3px 0;gap:8px}
-.navRow:active{background:#ffffff0a}
-.memberIcon{display:flex;align-items:center;justify-content:center;flex:none;width:22px;height:22px;border-radius:50%;font-size:12px;color:#ddd;background:#354f9c}
-.memberIcon.field{background:#b95702}
-.memberIcon.method{background:#ab1638}
-.memberIcon.string{background:#168e15}
-.navText{font-size:12px;line-height:16px;overflow:hidden;min-width:0;overflow-wrap:anywhere;flex:1}
-.navText small{display:block;font-size:9px;line-height:13px;color:#b0b0b0;overflow-wrap:anywhere}
-.navSearch[hidden]{display:none}
-.navSearch input{font-size:13px!important}
-.navigationPrefs .dialogBody{max-height:calc(100vh - 180px);overflow-y:auto}
-.navigationPrefs h3{font-weight:500;font-size:16px;margin:6px 0}
-.toggleRow{display:flex!important;align-items:center;justify-content:space-between;gap:16px;min-height:30px;margin:0!important;font-size:14px!important;line-height:20px}
-.toggleRow span{flex:1;min-width:0}
-.dialog .toggleRow input[type=checkbox]{width:26px;height:12px;margin:0 2px 0 0;border:0;border-radius:8px;background:#777;overflow:visible}
-.dialog .toggleRow input[type=checkbox]:after{display:block;content:"";position:absolute;top:-4px;left:0;width:20px;height:20px;border:0;border-radius:50%;background:#aaa;transform:none;box-shadow:0 1px 3px #0005}
-.dialog .toggleRow input[type=checkbox]:checked{background:#36617f}
-.dialog .toggleRow input[type=checkbox]:checked:after{left:10px;background:#1976d2}
-.lineMenu{width:230px}
-.lineMenu button{font-size:14px;min-height:46px}
-.lineMenu svg{width:22px;height:22px}
-.smaliMethod{background:#573d4855}
-.editorInfo{padding:0 14px;font-size:10px;gap:8px}
-.editorInfo #docName{max-width:45%;flex-shrink:1;min-width:0}
-.editorInfo #cursorInfo{flex-shrink:0;font-size:9px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.registerList small{display:block;color:var(--muted);overflow-wrap:anywhere}
-.dialog textarea{width:100%;min-height:100px;resize:vertical;background:var(--code);color:var(--text);border:1px solid var(--line);padding:8px;white-space:pre;font-family:monospace}
-.stackedActions .actions{flex-direction:column;align-items:flex-end}
-.stackedActions .actions button{min-height:48px}
-.renameDialog .actions button:first-child{margin-right:auto}
-.formColumns{display:flex;gap:22px}
-.formColumns>div,.formColumns>select{flex:1;min-width:0;width:50%}
-.archiveDialog{padding:20px 24px 8px}
-.archiveDialog h2{margin-bottom:8px}
-.archiveDialog label{font-size:13px;margin-top:8px;line-height:18px}
-.archiveDialog input:not([type=checkbox]),.archiveDialog select{font-size:14px;margin:0 0 6px;padding:9px 0;border-bottom:1px solid #777}
-.archiveDialog #archiveName{border-bottom:2px solid var(--blue)}
-.archiveDialog .toggleRow{min-height:42px;margin:0!important;font-size:13px!important}
-.passwordInput{display:flex;align-items:center}
-.passwordInput input{min-width:0;flex:1}
-.passwordInput button{width:30px;padding:8px 0;flex:none}
-.archiveDestination{font-size:10px;overflow-wrap:anywhere;margin-top:6px}
-.muted{color:var(--muted);font-size:12px;line-height:1.4}
-.diffText,#renamePreview{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;max-height:250px;overflow:auto;user-select:text}
-@media(max-width:330px){.navigationDialog{padding-left:16px;padding-right:16px}.actionGrid button{font-size:12px;padding:8px 3px;gap:4px}.archiveDialog{padding-left:16px;padding-right:16px}.formColumns{gap:14px}}
+button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+}
 
-/* Short, interruptible motion; the reference keeps the working surface compact. */
-button{position:relative;overflow:hidden;touch-action:manipulation}
-.touchRipple{position:absolute;display:block;border-radius:50%;background:currentColor;opacity:0;pointer-events:none;animation:touchRipple .42s cubic-bezier(.2,0,0,1);z-index:0}
-@keyframes touchRipple{from{transform:scale(0);opacity:.15}to{transform:scale(1);opacity:0}}
-.drawer{width:82vw;max-width:360px;animation:none;overscroll-behavior:contain}
-.drawer.entering{animation:drawerEnter .22s cubic-bezier(.2,0,0,1)}
-.drawerHead{height:56px;padding:4px 8px;display:flex;align-items:center}
-.drawerTop{width:100%;min-width:0}
-.drawer .brandMark{width:24px;height:24px;min-width:24px;border-width:1px;border-radius:6px;font-size:11px}
-.drawerTop .titleblock{padding:0 8px}
-.drawerTop .title{font-size:16px;line-height:21px}
-.drawerTop .subtitle{font-size:10px;line-height:14px}
-.drawer #themeToggle,.drawer #drawerMore{width:32px;height:44px}
-.drawer #themeToggle svg{width:22px;height:22px}
-.drawer #drawerMore svg{width:20px;height:20px}
-.drawerShade,.shade{animation:shadeEnter .18s ease-out}
-.drawer.dragging{animation:none!important;transition:none!important}
-.drawer.settling{animation:none!important;transition:transform .2s cubic-bezier(.2,0,0,1)}
-.drawerShade{transition:opacity .18s ease-out}
-.dialog,.fileActionMenu{animation:dialogEnter .18s cubic-bezier(.2,0,0,1)}
-.overflowMenu{transform-origin:top right;animation:menuEnter .16s cubic-bezier(.2,0,0,1);overscroll-behavior:contain}
-.closing{pointer-events:none}
-.closing .drawer{animation:drawerExit .16s ease-in forwards!important}
-.closing .drawerShade,.closing .shade{animation:fadeExit .14s ease-in forwards!important}
-.closing .dialog,.closing .fileActionMenu{animation:dialogExit .12s ease-in forwards!important}
-.closing .overflowMenu{animation:menuExit .12s ease-in forwards!important}
-.sectionLabel svg,.treeRow .chevron{transition:transform .18s cubic-bezier(.2,0,0,1)}
-.toggleRow input:after{transition:left .16s ease,background-color .16s ease}
-.tab{transition:color .16s ease,border-color .16s ease}
-.pane{transition:background-color .14s ease}
-.pane:not(.active){background:#2b2b2b}
-body.light .pane:not(.active){background:#f2f2f2}
-.currentDocument{background:#294455;color:#b5d7eb;gap:10px;min-height:48px}
-.currentDocument small{display:block;font-size:10px;color:var(--muted);margin-top:3px}
-.currentDocument .storage{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#drawerDocument:empty{display:none}
-.editorInfo #cursorInfo{margin-left:auto;max-width:62%}
-.editorInfo{padding-right:2px;gap:4px}
-.editorOverflow{display:flex;align-items:center;justify-content:center;flex:none;width:26px;height:22px;padding:0}
-.editorOverflow svg{width:16px;height:16px;transform:rotate(90deg)}
-#codehost{position:relative}
-#codehost{overflow:hidden;isolation:isolate}
-.compileError{font:12px/1.55 monospace;white-space:pre-wrap;overflow-wrap:anywhere;max-height:52vh;overflow:auto;user-select:text}
-.compileDialog{width:calc(100vw - 40px);max-width:650px}
-.savingCode #toolbar button,.savingCode #bottom button,.savingCode .editorOverflow{pointer-events:none;opacity:.45}
-.savingCode #docName:after{content:' · Saving…';color:var(--blue)}
-.file,.treeRow{contain:layout style}
-@supports(content-visibility:auto){.file{content-visibility:auto;contain-intrinsic-size:auto 40px}}
-.overflowMenu{max-height:calc(100dvh - 16px);overflow-y:auto}
-.CodeMirror{touch-action:pan-x pan-y}
-.pinchZooming,.pinchZooming *{-webkit-user-select:none!important;user-select:none!important}
-.zoomBadge{position:absolute;right:12px;top:10px;z-index:8;border-radius:3px;padding:5px 8px;background:#171717e6;color:#ddd;font:12px/18px Roboto,Arial,sans-serif;pointer-events:none}
-.zoomBadge[hidden]{display:none}
-.zoomControls{display:flex;justify-content:center;align-items:center;gap:24px}
-.zoomControls button{width:44px;height:44px;color:var(--blue);font-size:25px}
-.zoomControls output{min-width:70px;text-align:center;font-size:18px}
-@keyframes drawerEnter{from{transform:translateX(-100%)}to{transform:translateX(0)}}
-@keyframes drawerExit{to{transform:translateX(-100%);opacity:.9}}
-@keyframes shadeEnter{from{opacity:0}to{opacity:1}}
-@keyframes fadeExit{to{opacity:0}}
-@keyframes dialogEnter{from{opacity:0;transform:translate(-50%,-50%) scale(.96)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
-@keyframes dialogExit{to{opacity:0;transform:translate(-50%,-50%) scale(.97)}}
-@keyframes menuEnter{from{opacity:0;transform:scale(.9,.95)}to{opacity:1;transform:scale(1)}}
-@keyframes menuExit{to{opacity:0;transform:scale(.96)}}
-.reduceMotion *,.reduceMotion *:before,.reduceMotion *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
-@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+button {
+    border: 0;
+    background: none;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    touch-action: manipulation;
+    transition: background 0.2s, opacity 0.2s;
+}
 
-/* APKS conversion uses the same compact dialogs and native worker as file tools. */
-.bundleSource{overflow-wrap:anywhere;color:var(--text)}
-.bundleHint{font-size:13px;line-height:1.45;color:var(--muted);overflow-wrap:anywhere;margin:10px 0}
-.bundleDialog label{display:block;margin-top:12px;margin-bottom:6px}
-.bundleDialog select{width:100%;min-width:0;background:var(--dialog);color:var(--text);border:1px solid var(--line);padding:10px;font:inherit}
-.bundleWorking{display:flex;align-items:center;gap:16px;min-height:64px}
-.bundleSpinner{flex:0 0 24px;width:24px;height:24px;border:3px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:bundleSpin 1s linear infinite}
-@keyframes bundleSpin{to{transform:rotate(360deg)}}
-.reduceMotion .bundleSpinner{animation:none}
+button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
 
-/* APK tools */
-.checkRow{display:flex;align-items:center;gap:10px;padding:8px 0;word-break:break-all}
-.checkRow input{width:20px;height:20px;flex:none}
-.hexView{font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;overflow-x:auto;white-space:pre}
-.hexRow{display:flex;gap:6px}
-.hexOff{opacity:.55}
-.hexAscii{opacity:.8}
-.arscList{max-height:50vh;overflow:auto;display:flex;flex-direction:column;gap:4px}
-.arscRow{text-align:left;padding:10px 12px;border-radius:10px;word-break:break-word}
+button:focus-visible, a:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+#app {
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#toolbar {
+    height: 60px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+.iconbtn {
+    width: 44px;
+    height: 44px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    margin: 0 2px;
+}
+
+.iconbtn:active {
+    background: var(--surface-hover);
+}
+
+.iconbtn svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--icon);
+    fill: var(--icon);
+    transition: stroke 0.2s, fill 0.2s;
+}
+
+.titleblock {
+    flex: 1;
+    min-width: 0;
+    padding: 0 12px;
+}
+
+.title {
+    font-size: 19px;
+    font-weight: 600;
+    line-height: 24px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    color: var(--text);
+}
+
+.subtitle {
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.editorActions {
+    display: flex;
+    flex: 1;
+    justify-content: space-around;
+}
+
+.editorActions .iconbtn {
+    width: 40px;
+}
+
+.brandMark {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius);
+    background: linear-gradient(135deg, var(--primary), #8b5cf6);
+    color: #fff;
+    font: 700 18px monospace;
+    box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+}
+
+#subbar:empty { display: none; }
+#subbar { flex: none; }
+
+.filepanes {
+    display: flex;
+    height: 100%;
+    width: 100%;
+}
+
+.pane {
+    width: 50%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid var(--border);
+    position: relative;
+    scrollbar-width: thin;
+    scrollbar-color: var(--text-muted) transparent;
+    transition: background 0.2s;
+}
+
+.pane:last-child { border-right: 0; }
+.pane:not(.active) { opacity: 0.85; }
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+.file {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    text-align: left;
+    padding: 8px 12px;
+    min-height: 52px;
+    user-select: none;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+}
+
+.file:active, .file.selected {
+    background: var(--surface-hover);
+}
+
+.fileicon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--surface);
+    color: var(--icon);
+    margin-right: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.fileicon svg { width: 20px; height: 20px; }
+.fileicon.apk { background: transparent; color: #10b981; box-shadow: none; }
+.fileicon.apk svg { width: 36px; height: 36px; }
+.fileicon.xml, .fileicon.java, .fileicon.smali { background: rgba(59, 130, 246, 0.15); color: var(--primary); }
+.fileicon.dex { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.fileicon.arsc { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.fileicon.zip, .fileicon.apks { background: rgba(139, 92, 246, 0.15); color: #8b5cf6; }
+
+.fileinfo { min-width: 0; flex: 1; }
+.filename { font-size: 15px; line-height: 20px; font-weight: 500; word-break: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.filemeta { display: block; font-size: 11px; line-height: 16px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: clip; margin-top: 2px; }
+.parent .filename { color: var(--text-muted); font-weight: normal; }
+
+#content { flex: 1; min-height: 0; overflow: hidden; position: relative; }
+#bottom { height: 56px; min-height: 56px; display: flex; align-items: center; justify-content: space-around; border-top: 1px solid var(--border); background: var(--surface); z-index: 10; }
+#bottom:empty { display: none; }
+.bottom-key { font-size: 20px; color: var(--text-muted); min-width: 35px; height: 45px; font-weight: 600; }
+.bottom-key:active { color: var(--primary); }
+
+.empty { padding: 40px 20px; color: var(--text-muted); font-size: 14px; line-height: 1.8; text-align: center; }
+.primary { color: var(--primary); text-transform: uppercase; font-size: 14px; font-weight: 600; padding: 12px 16px; border-radius: var(--radius); background: rgba(59, 130, 246, 0.1); transition: background 0.2s; }
+.primary:active { background: rgba(59, 130, 246, 0.2); }
+
+.drawerShade, .shade { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 20; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.drawer { position: fixed; left: 0; top: 0; bottom: 0; width: 85vw; max-width: 320px; background: var(--surface); z-index: 21; overflow-y: auto; box-shadow: var(--shadow); border-right: 1px solid var(--border); animation: slide .25s cubic-bezier(0.16, 1, 0.3, 1); }
+.drawerHead { padding: 20px 16px; background: linear-gradient(180deg, var(--surface-hover) 0%, var(--surface) 100%); border-bottom: 1px solid var(--border); }
+.drawerTop { display: flex; align-items: center; gap: 12px; }
+.drawerTop .titleblock { padding: 0; }
+.drawerTop .title { font-size: 20px; }
+.sectionLabel { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; width: 100%; color: var(--primary); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
+.drawerRow { display: flex; align-items: center; min-height: 48px; padding: 8px 16px; width: 100%; text-align: left; font-size: 15px; font-weight: 500; transition: background 0.2s; }
+.drawerRow:active { background: var(--surface-hover); }
+.circleicon { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 10px; background: var(--bg); flex: none; margin-right: 16px; color: var(--icon); }
+.circleicon svg { width: 18px; height: 18px; }
+.meter { height: 4px; background: var(--border); border-radius: 2px; margin: 8px 0 4px; overflow: hidden; }
+.meter span { display: block; background: var(--primary); height: 100%; max-width: 100%; border-radius: 2px; }
+.storage { flex: 1; min-width: 0; }
+.storage .small { font-size: 11px; color: var(--text-muted); font-weight: normal; }
+
+.dialog { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); width: calc(100% - 40px); max-width: 440px; max-height: calc(100vh - 40px); overflow-y: auto; background: var(--dialog-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; z-index: 31; box-shadow: var(--shadow); padding: 28px; color: var(--text); animation: dialogEnter .2s cubic-bezier(0.16, 1, 0.3, 1); }
+#modalLayer .shade { z-index: 30; }
+.dialog h2 { font-size: 22px; font-weight: 700; margin: 0 0 16px; line-height: 1.2; }
+.dialog p { font-size: 15px; line-height: 1.6; margin: 12px 0; color: var(--text-muted); }
+.dialog .actions { display: flex; justify-content: flex-end; flex-wrap: wrap; margin-top: 24px; gap: 8px; }
+.dialog .actions button { color: var(--primary); text-transform: uppercase; min-height: 40px; padding: 10px 16px; font-size: 14px; font-weight: 700; border-radius: 10px; transition: background 0.2s; }
+.dialog .actions button:active { background: rgba(59, 130, 246, 0.15); }
+.dialog input:not([type=checkbox]):not([type=range]), .dialog select, .toolinput { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 12px 14px; width: 100%; outline: none; margin: 6px 0 16px; font-size: 15px; transition: border-color 0.2s; }
+.dialog input:focus { border-color: var(--primary); }
+.dialog select option { background: var(--surface); color: var(--text); }
+.dialog label { font-size: 13px; color: var(--text-muted); font-weight: 600; display: block; margin-top: 12px; letter-spacing: 0.5px; }
+
+.dialog input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border: 2px solid var(--text-muted); border-radius: 6px; margin: 0 16px 0 0; flex: none; position: relative; background: transparent; transition: all 0.2s; }
+.dialog input[type=checkbox]:checked { background: var(--primary); border-color: var(--primary); }
+.dialog input[type=checkbox]:checked::after { content: ""; display: block; position: absolute; width: 5px; height: 10px; border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg); left: 6px; top: 2px; }
+.checkRow { display: flex !important; align-items: center; min-height: 48px; font-size: 15px !important; margin: 0 !important; color: var(--text) !important; border-bottom: 1px solid var(--border); cursor: pointer; }
+.checkRow:last-of-type { border-bottom: 0; }
+
+.options .option { display: flex; align-items: center; min-height: 52px; text-align: left; width: 100%; font-size: 16px; padding: 0; font-weight: 500; border-bottom: 1px solid var(--border); }
+.options .option:last-child { border-bottom: 0; }
+.options .option svg { width: 24px; height: 24px; flex: none; color: var(--text-muted); }
+
+.dataGrid { display: grid; grid-template-columns: 45% 55%; font-size: 15px; line-height: 22px; gap: 12px 8px; margin-top: 16px; }
+.dataGrid .value { display: block; min-width: 0; color: var(--primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; padding: 0; font-weight: 500; }
+.apkHead { display: flex; align-items: center; gap: 16px; margin-bottom: 8px; }
+.apkHead .brandMark { width: 56px; height: 56px; border-radius: 16px; font-size: 22px; }
+.apkHead h2 { margin: 0; font-size: 22px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 700; }
+.apkHead .subtitle { font-size: 13px; margin-top: 4px; color: var(--text-muted); }
+
+.overflowShade { position: fixed; inset: 0; z-index: 40; }
+.overflowMenu { position: fixed; right: 12px; top: 12px; background: var(--dialog-bg); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--border); box-shadow: var(--shadow); width: 220px; max-width: calc(100vw - 24px); max-height: calc(100vh - 24px); overflow-y: auto; z-index: 41; border-radius: var(--radius); padding: 8px; color: var(--text); transform-origin: top right; animation: menuEnter .15s cubic-bezier(0.16, 1, 0.3, 1); }
+.overflowMenu button { display: flex; align-items: center; width: 100%; min-height: 44px; font-size: 15px; font-weight: 500; text-align: left; padding: 8px 12px; border-radius: 8px; transition: background 0.15s; }
+.overflowMenu button:active { background: var(--surface-hover); }
+.overflowMenu svg { width: 20px; height: 20px; flex: none; margin-right: 12px; color: var(--text-muted); }
+
+.tabs { display: flex; height: 48px; border-bottom: 1px solid var(--border); background: var(--surface); }
+.tab { font-size: 13px; font-weight: 600; text-transform: uppercase; color: var(--text-muted); flex: 1; min-width: 0; border-bottom: 3px solid transparent; padding: 0; line-height: 48px; transition: color 0.2s, border-color 0.2s; letter-spacing: 0.5px; }
+.tab.active { border-bottom-color: var(--primary); color: var(--primary); }
+
+.tree { height: 100%; overflow: auto; padding: 8px 0; scrollbar-width: thin; background: var(--bg); }
+.treeRow { display: flex; align-items: center; min-height: 40px; padding: 0 16px; width: 100%; text-align: left; font-size: 15px; white-space: nowrap; border-radius: 8px; margin: 2px 8px; width: calc(100% - 16px); transition: background 0.15s; }
+.treeRow:active { background: var(--surface-hover); }
+.treeRow .chevron { width: 16px; height: 24px; flex: none; display: flex; align-items: center; justify-content: center; margin-right: 8px; color: var(--text-muted); transition: transform 0.2s; }
+.treeRow .chevron svg { width: 12px; height: 12px; }
+.treeRow[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+.treeRow .fileicon { width: 28px; height: 28px; border-radius: 8px; margin-right: 12px; background: transparent; box-shadow: none; color: var(--primary); }
+.treeRow .classicon { width: 28px; height: 28px; border-radius: 8px; background: rgba(59, 130, 246, 0.15); display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 14px; font-weight: 700; flex: none; margin-right: 12px; }
+.treeChildren { padding-left: 20px; }
+
+.editorInfo { height: 32px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 12px; font-weight: 500; background: var(--surface); border-bottom: 1px solid var(--border); color: var(--text-muted); }
+
+.CodeMirror { height: 100%; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.5; background: var(--code-bg); color: var(--text); }
+.CodeMirror-gutters { background: var(--gutter); border-right: 1px solid var(--border); padding-right: 8px; }
+.CodeMirror-linenumber { color: var(--text-muted); min-width: 24px; padding: 0 4px; }
+.CodeMirror-cursor { border-left: 2px solid var(--primary); }
+.CodeMirror-selected { background: var(--line-highlight) !important; }
+.cm-s-cyber .cm-keyword { color: #c678dd; font-weight: 600; }
+.cm-s-cyber .cm-string { color: #98c379; }
+.cm-s-cyber .cm-number, .cm-s-cyber .cm-atom { color: #d19a66; }
+.cm-s-cyber .cm-comment { color: #5c6370; font-style: italic; }
+.cm-s-cyber .cm-variable-3, .cm-s-cyber .cm-type { color: #e5c07b; }
+.cm-s-cyber .cm-tag { color: #e06c75; }
+.cm-s-cyber .cm-attribute { color: #d19a66; }
+.cm-s-cyber .cm-def { color: #61afef; font-weight: 600; }
+.cm-s-cyber .cm-meta { color: #56b6c2; }
+.cm-searching { background: rgba(59, 130, 246, 0.4); border-radius: 2px; }
+
+.toolpage { height: 100%; overflow: auto; padding: 24px; background: var(--bg); }
+.toolpage h3 { font-size: 18px; font-weight: 700; margin: 8px 0 20px; }
+.toolpage p { color: var(--text-muted); line-height: 1.6; font-size: 14px; }
+.listrow { padding: 16px 12px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--border); width: 100%; text-align: left; transition: background 0.2s; border-radius: 8px; }
+.listrow:active { background: var(--surface-hover); }
+.listrow .main { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 15px; font-weight: 500; }
+.listrow small { display: block; color: var(--text-muted); margin-top: 4px; font-size: 12px; font-weight: normal; }
+.listrow svg { width: 28px; height: 28px; flex: none; color: var(--primary); }
+
+.searchline { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface); border-radius: var(--radius); margin-bottom: 16px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+.searchline input { background: transparent; outline: 0; border: 0; color: var(--text); font: inherit; flex: 1; min-width: 0; font-size: 15px; }
+.searchline button { color: var(--primary); padding: 8px; font-weight: 600; }
+
+#toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); max-width: 88vw; width: max-content; z-index: 100; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(8px); color: #f8fafc; border-radius: var(--radius); padding: 14px 20px; font-size: 14px; font-weight: 500; display: none; box-shadow: var(--shadow); border: 1px solid rgba(255,255,255,0.1); animation: toastEnter 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+body.light #toast { background: rgba(255, 255, 255, 0.95); color: #0f172a; border-color: rgba(0,0,0,0.1); }
+
+@keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+@keyframes dialogEnter { from { opacity: 0; transform: translate(-50%, -48%) scale(0.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes menuEnter { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+@keyframes toastEnter { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+#content:not(.javaEditor) .CodeMirror { line-height: 1.4; }
+.javaEditor .CodeMirror { line-height: 1.3; }
+.editorActions { min-width: 0; display: flex; justify-content: flex-end; flex: none; }
+.editorActions .iconbtn { width: 44px; margin: 0; }
+#bottom.editorBottom { height: 44px; min-height: 44px; background: var(--surface); border-top: 1px solid var(--border); }
+#bottom.editorBottom .bottom-key { height: 40px; font-size: 18px; font-weight: 700; color: var(--text); }
