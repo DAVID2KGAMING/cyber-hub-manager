@@ -1,9 +1,0 @@
-PASS normal: visible startup state; protected Window.location unchanged
-PASS denied-storage: visible startup state; protected Window.location unchanged
-PASS bad-preferences: visible startup state; protected Window.location unchanged
-PASS bridge-error: visible startup state; protected Window.location unchanged
-PASS no-bridge: visible startup state; protected Window.location unchanged
-PASS timeout: visible startup state; protected Window.location unchanged
-PASS script-error: visible startup state; protected Window.location unchanged
-PASS missing-editor: visible startup state; protected Window.location unchanged
-ALL 8 STARTUP CHECKS PASSED (V8/DOM; Android WebView is not emulated)

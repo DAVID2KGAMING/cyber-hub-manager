@@ -1,7 +1,0 @@
-.gradle/
-.build/
-local.properties
-**/build/
-dist/
-*.iml
-.idea/
