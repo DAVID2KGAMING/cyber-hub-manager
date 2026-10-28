@@ -1,0 +1,21 @@
+PASS sidebar has working overflow options; selecting one dismisses sidebar
+PASS rapid drawer close/reopen keeps new content and isolates closing snapshot
+PASS prompt replacement resolves cancel once without removing the new dialog
+PASS vertical edge drag remains normal scrolling
+PASS edge swipe opens sidebar and settles after finger release
+PASS horizontal swipe closes drawer and suppresses accidental row clicks
+PASS Smali pinch enlarges font while preserving text, cursor and clean state
+PASS pinch shrinks text and respects the 4–32 px bounds
+PASS Java pinch works read-only and retains independent Smali/Java preferences
+PASS reopening Java and Smali restores saved sizes without duplicate gesture UI
+PASS one finger retains normal editor touch scrolling
+PASS interrupted pinch cleans up and does not trap later touches
+PASS side ellipsis opens editor menu and accessible zoom controls work
+PASS keyboard zoom and reset work without editing Java
+PASS zoom anchor math uses the post-layout scroll position after clamping
+PASS pinch preference and reduced-motion setting are respected
+PASS sidebar inspection and zoom never save or discard unsaved code
+PASS leaving editor disposes gesture state and preserves normal Smali saving
+PASS standalone XML and text also support independent pinch zoom
+PASS no JavaScript errors across gesture, menu and prompt transitions
+ALL 20 MOTION/ZOOM CHECKS PASSED (synthetic touch/DOM; not physical-device rendering)
